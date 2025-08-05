@@ -1,0 +1,10 @@
+__pycache__
+.vscode/
+pyvenv.cfg
+.venv
+
+
+data
+models
+share
+train_log
