@@ -1,5 +1,5 @@
-from tensorflow.keras.layers import Conv2D
 import tensorflow as tf
+from keras.layers import Conv2D, MaxPooling2D
 import numpy as np
 
 from src.parameters import *

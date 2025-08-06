@@ -7,7 +7,7 @@ import numpy as np
 import tensorflow as tf
 
 os.environ['FFMPEG_BINARY'] = 'ffmpeg'
-
+os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
 
 from src.Utils import (load_user_image, load_loss_log, to_rgba, save_loss, export_model,
                       visualize_batch, plot_loss, generate_pool_figures)
@@ -41,8 +41,6 @@ trainer = tf.keras.optimizers.Adam(lr_sched)
 
 loss0 = loss_f(seed).numpy()
 pool = SamplePool(x=np.repeat(seed[None, ...], POOL_SIZE, 0))
-
-
 
 
 @tf.function

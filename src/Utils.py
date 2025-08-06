@@ -136,7 +136,7 @@ def visualize_batch(x0, x, step_i):
   vis1 = np.hstack(to_rgb(x).numpy())
   vis = np.vstack([vis0, vis1])
   imwrite('train_log/%04d/batches_%04d.jpg'%(step_i, step_i), vis)
-  print('batch (before/after):')
+  #print('batch (before/after):')
   #imshow(vis)
 
 def plot_loss(loss_log, step_i):
