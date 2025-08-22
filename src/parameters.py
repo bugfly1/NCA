@@ -14,9 +14,10 @@ EXPERIMENT_N = EXPERIMENT_MAP[EXPERIMENT_TYPE]
 USE_PATTERN_POOL = [0, 1, 1][EXPERIMENT_N]
 DAMAGE_N = [0, 0, 3][EXPERIMENT_N]  # Number of patterns to damage in a batch
 
-
-STARTING_STATE = "cat_bongos/frame_0.png"
 USER_IMAGE = "data/images/dcc_comprimido.png"
+#USER_VIDEO = "data/Video"
+USER_VIDEO = False
+
 
 START_TRAINING_FROM_SAVE_POINT = False
 SAVE_POINT = "8000" # step
