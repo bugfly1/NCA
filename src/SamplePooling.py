@@ -4,6 +4,11 @@ import numpy as np
 
 from src.parameters import *
 
+## Esta demasiado generalizadaaaaaaa
+# Todos los batch (resultados de .sample()) son hijos del mismo pool
+# y este solamente tiene como slot 'x', los hijos tendran de slots
+# su propio batch llamado x con 8 de los 1024 que tenemos
+
 
 class SamplePool:
   def __init__(self, *, _parent=None, _parent_idx=None, **slots):
@@ -17,23 +22,27 @@ class SamplePool:
       assert self._size == len(v)
       setattr(self, k, np.asarray(v))
 
-  # Creo que esto crea "el canvas" con un solo pixel
+  def __str__(self):
+    string = f"""Sample pool object: 
+      _parent_idx: {self._parent_idx},
+      _size: {self._size}
+      """
+    string += "slots:\n"
+    for k in self._slot_names:
+      value = getattr(self, k)
+      if type(value) == np.ndarray:
+        string += f"\t {k}: (np.array), {value.shape}"
+    return string
+
+  # Select n samples from pool
   def sample(self, n):
+    # Select random samples
     idx = np.random.choice(self._size, n, False)
     batch = {k: getattr(self, k)[idx] for k in self._slot_names}
     batch = SamplePool(**batch, _parent=self, _parent_idx=idx)
     return batch
 
+  # Update samples from pool
   def commit(self):
     for k in self._slot_names:
       getattr(self._parent, k)[self._parent_idx] = getattr(self, k)
-
-@tf.function
-def make_circle_masks(n, h, w):
-  x = tf.linspace(-1.0, 1.0, w)[None, None, :]
-  y = tf.linspace(-1.0, 1.0, h)[None, :, None]
-  center = tf.random.uniform([2, n, 1, 1], -0.5, 0.5)
-  r = tf.random.uniform([n, 1, 1], 0.1, 0.4)
-  x, y = (x-center[0])/r, (y-center[1])/r
-  mask = tf.cast(x*x+y*y < 1.0, tf.float32)
-  return mask

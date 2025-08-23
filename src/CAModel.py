@@ -20,35 +20,58 @@ class CAModel(tf.keras.Model):
 
     self(tf.zeros([1, 3, 3, channel_n]))  # dummy call to build the model
 
+
+  def __str__(self):
+    self.dmodel.summary()
+    string = f"""CAModel:
+    Cell channels: {self.channel_n},
+    Cell update probability: {CELL_FIRE_RATE}
+    """
+    return string
+  
+  
   @tf.function
   def perceive(self, x, angle=0.0):
     identify = np.float32([[0, 0, 0],
                           [0, 1, 0],
                           [0, 0, 0]])
+    # Sobel_x
     dx = np.float32([[-1, 0, 1],
                     [-2, 0, 2],
                     [-1, 0, 1]]) / 8.0
+    # Sobel_y  
     dy = dx.T
     c, s = tf.cos(angle), tf.sin(angle)
+    
+    # By convolution we stack each cell state, its partial derivatives in x and y
     kernel = tf.stack([identify, c*dx-s*dy, s*dx+c*dy], -1)[:, :, None, :]
+    
     kernel = tf.repeat(kernel, self.channel_n, 2)
+    
     y = tf.nn.depthwise_conv2d(x, kernel, [1, 1, 1, 1], 'SAME')
     return y
 
   @tf.function
-  def call(self, x, fire_rate=None, angle=0.0, step_size=1.0):
+  def call(self, x, fire_rate=None, angle=0.0, step_size=1.0):    
     pre_life_mask = get_living_mask(x)
 
+    # We stack the dx and dy values to each cell
     y = self.perceive(x, angle)
+    
+    # We run the CA convolution
     dx = self.dmodel(y)*step_size
+    
     if fire_rate is None:
       fire_rate = self.fire_rate
+      
+    # Which cell are gonna get updated (Stochastic cell update)
     update_mask = tf.random.uniform(tf.shape(x[:, :, :, :1])) <= fire_rate
+    
+    # We apply the change on updated cells
     x += dx * tf.cast(update_mask, tf.float32)
 
     post_life_mask = get_living_mask(x)
+    
     life_mask = pre_life_mask & post_life_mask
+    
     return x * tf.cast(life_mask, tf.float32)
-
-
-CAModel().dmodel.summary()

@@ -9,8 +9,74 @@ from IPython.display import Image
 from tensorflow.python.framework import convert_to_constants
 from google.protobuf.json_format import MessageToDict
 
+import cv2
+import random
 
 from src.parameters import *
+
+
+# https://www.tensorflow.org/tutorials/load_data/video
+def format_frames(frame, output_size):
+  """
+    Pad and resize an image from a video.
+
+    Args:
+      frame: Image that needs to resized and padded. 
+      output_size: Pixel size of the output frame image.
+
+    Return:
+      Formatted frame with padding of specified output size.
+  """
+  frame = tf.image.convert_image_dtype(frame, tf.float32)
+  frame = tf.image.resize_with_pad(frame, *output_size)
+  return frame
+
+
+def frames_from_video_file(video_path, n_frames, output_size = (224,224), frame_step = 15):
+  """
+    Creates frames from each video file present for each category.
+
+    Args:
+      video_path: File path to the video.
+      n_frames: Number of frames to be created per video file.
+      output_size: Pixel size of the output frame image.
+
+    Return:
+      An NumPy array of frames in the shape of (n_frames, height, width, channels).
+  """
+  # Read each video frame by frame
+  result = []
+  src = cv2.VideoCapture(str(video_path))  
+
+  video_length = src.get(cv2.CAP_PROP_FRAME_COUNT)
+
+  need_length = 1 + (n_frames - 1) * frame_step
+
+  #if need_length > video_length:
+  if True:
+    start = 0
+  else:
+    max_start = video_length - need_length
+    start = random.randint(0, int(max_start) + 1)
+
+  src.set(cv2.CAP_PROP_POS_FRAMES, start)
+  # ret is a boolean indicating whether read was successful, frame is the image itself
+  ret, frame = src.read()
+  result.append(format_frames(frame, output_size))
+
+  for _ in range(n_frames - 1):
+    for _ in range(frame_step):
+      ret, frame = src.read()
+    if ret:
+      frame = format_frames(frame, output_size)
+      result.append(frame)
+    else:
+      result.append(np.zeros_like(result[0]))
+  src.release()
+  result = np.array(result)[..., [2, 1, 0]]
+
+  return result
+
 
 # Loading
 
@@ -44,6 +110,8 @@ def to_rgb(x):
 
 def get_living_mask(x):
   alpha = x[:, :, :, 3:4]
+  # Cell is considered empty if there is no alpha > 0.1 cell in its
+  # 3x3 neightborhood  
   return tf.nn.max_pool2d(alpha, 3, [1, 1, 1, 1], 'SAME') > 0.1
 
 def make_seed(size, n=1):
@@ -100,27 +168,17 @@ def zoom(img, scale=4):
   return img
 
 
-## Saving
-def export_model(ca, base_fn):
-  ca.save_weights(base_fn)
+@tf.function
+def make_circle_masks(n, h, w):
+  x = tf.linspace(-1.0, 1.0, w)[None, None, :]
+  y = tf.linspace(-1.0, 1.0, h)[None, :, None]
+  center = tf.random.uniform([2, n, 1, 1], -0.5, 0.5)
+  r = tf.random.uniform([n, 1, 1], 0.1, 0.4)
+  x, y = (x-center[0])/r, (y-center[1])/r
+  mask = tf.cast(x*x+y*y < 1.0, tf.float32)
+  return mask
 
-  cf = ca.call.get_concrete_function(
-      x=tf.TensorSpec([None, None, None, CHANNEL_N]),
-      fire_rate=tf.constant(0.5),
-      angle=tf.constant(0.0),
-      step_size=tf.constant(1.0))
-  cf = convert_to_constants.convert_variables_to_constants_v2(cf)
-  graph_def = cf.graph.as_graph_def()
-  graph_json = MessageToDict(graph_def)
-  graph_json['versions'] = dict(producer='1.14', minConsumer='1.14')
-  model_json = {
-      'format': 'graph-model',
-      'modelTopology': graph_json,
-      'weightsManifest': [],
-  }
-  with open(base_fn+'.json', 'w') as f:
-    json.dump(model_json, f)
-
+## ============ Save Training Data ============
 def generate_pool_figures(pool, step_i):
   tiled_pool = tile2d(to_rgb(pool.x[:49]))
   fade = np.linspace(1.0, 0.0, 72)
@@ -146,12 +204,70 @@ def plot_loss(loss_log, step_i):
   pl.savefig('train_log/%04d/%04d_loss.jpg'%(step_i, step_i))
   #pl.show()
 
+def export_model(ca, base_fn):
+  ca.save_weights(base_fn)
+
+  cf = ca.call.get_concrete_function(
+      x=tf.TensorSpec([None, None, None, CHANNEL_N]),
+      fire_rate=tf.constant(0.5),
+      angle=tf.constant(0.0),
+      step_size=tf.constant(1.0))
+  cf = convert_to_constants.convert_variables_to_constants_v2(cf)
+  graph_def = cf.graph.as_graph_def()
+  graph_json = MessageToDict(graph_def)
+  graph_json['versions'] = dict(producer='1.14', minConsumer='1.14')
+  model_json = {
+      'format': 'graph-model',
+      'modelTopology': graph_json,
+      'weightsManifest': [],
+  }
+  with open(base_fn+'.json', 'w') as f:
+    json.dump(model_json, f)
 
 def save_loss(file, loss_log):
   with open(file, 'wb') as f:
     np.save(f, loss_log)
     
+def save_pool(file, pool):
+  with open(file, 'wb') as f:
+    np.save(f, pool.x)
+    
+def load_pool(file):
+  with open(file, 'rb') as f:
+    x = np.load(file)
+  return x
+    
 def load_loss_log(file):
   with open(file, 'rb') as f:
     a = np.load(file)
   return a
+
+
+### ============ Export to WebGL ============
+def pack_layer(weight, bias, outputType=np.uint8):
+  in_ch, out_ch = weight.shape
+  assert (in_ch%4==0) and (out_ch%4==0) and (bias.shape==(out_ch,))
+  weight_scale, bias_scale = 1.0, 1.0
+  if outputType == np.uint8:
+    weight_scale = 2.0*np.abs(weight).max()
+    bias_scale = 2.0*np.abs(bias).max()
+    weight = np.round((weight/weight_scale+0.5)*255)
+    bias = np.round((bias/bias_scale+0.5)*255)
+  packed = np.vstack([weight, bias[None,...]])
+  packed = packed.reshape(in_ch+1, out_ch//4, 4)
+  packed = outputType(packed)
+  packed_b64 = base64.b64encode(packed.tobytes()).decode('ascii')
+  return {'data_b64': packed_b64, 'in_ch': in_ch, 'out_ch': out_ch,
+          'weight_scale': float(weight_scale), 'bias_scale': float(bias_scale),
+          'type': outputType.__name__}
+
+def export_ca_to_webgl_demo(ca, outputType=np.uint8):
+  # reorder the first layer inputs to meet webgl demo perception layout
+  chn = ca.channel_n
+  w1 = ca.weights[0][0, 0].numpy()
+  w1 = w1.reshape(chn, 3, -1).transpose(1, 0, 2).reshape(3*chn, -1)
+  layers = [
+      pack_layer(w1, ca.weights[1].numpy(), outputType),
+      pack_layer(ca.weights[2][0, 0].numpy(), ca.weights[3].numpy(), outputType)
+  ]
+  return json.dumps(layers)
