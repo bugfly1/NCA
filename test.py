@@ -29,30 +29,18 @@ if not os.path.isdir(f"train_log"):
 
 
 ### Load and pad target Image
+N_FRAMES= 2
+p = TARGET_PADDING
 
-#VIDEO= False
-if VIDEO:
-  N_FRAMES= 2
-  p = TARGET_PADDING
-
-  images = os.listdir(SRC_VIDEO)
-  target_video = np.zeros((2, TARGET_SIZE+2*TARGET_PADDING, TARGET_SIZE+2*TARGET_PADDING, 4))
-  for img, i in zip(images, range(N_FRAMES)):
+images = os.listdir(SRC_VIDEO)
+target_video = np.zeros((2, TARGET_SIZE+2*TARGET_PADDING, TARGET_SIZE+2*TARGET_PADDING, 4))
+for img, i in zip(images, range(N_FRAMES)):
     path = os.path.join(SRC_VIDEO, img)
     target_video[i] = tf.pad(load_user_image(path), [(p, p), (p, p), (0, 0)])
 
-  pad_target = target_video[0]
+pad_target = target_video[0]
 
-  h, w = pad_target.shape[:2]
-
-else:
-  target_img = load_user_image(SRC_IMAGE)
-  p = TARGET_PADDING
-  pad_target = tf.pad(target_img, [(p, p), (p, p), (0, 0)])
-
-  h, w = pad_target.shape[:2]
-  
-  
+h, w = pad_target.shape[:2]
 
 # We add invisible parameters to CA
 seed = np.zeros([h, w, CHANNEL_N], np.float32)
@@ -60,7 +48,8 @@ seed = np.zeros([h, w, CHANNEL_N], np.float32)
 # Set center cell alive for seed
 seed[h//2, w//2, 3:] = 1.0
 
-
+video_seed = np.zeros([N_FRAMES, h, w, CHANNEL_N], np.float32)
+video_seed[:,:,:,:4] = target_video
 
 ca = CAModel()
 loss_log = np.array([])
@@ -77,6 +66,8 @@ pool = SamplePool(x=np.repeat(seed[None, ...], POOL_SIZE, 0))
 
 ### Loss Function
 def loss_f(x):
+  print(type(to_rgba(x)))
+  print(type(pad_target))
   return tf.reduce_mean(tf.square(to_rgba(x)-pad_target), [-2, -3, -1])
 
 
@@ -109,40 +100,16 @@ else:
 # ========================= Training Loop =====================
 first_loop = True
 for i in range(begining, 8000+1):
-  
   ### Generate input grids for CA
-  if USE_PATTERN_POOL:
-    # Sample a batch from pool
-    batch = pool.sample(BATCH_SIZE)
-    x0 = batch.x
-    
-    # We sort the batch by loss
-    loss_rank = loss_f(x0).numpy().argsort()[::-1]
-    x0 = x0[loss_rank]
-    
-    # The one with less loss gets changed with the seed
-    x0[:1] = seed
-    
-    if DAMAGE_N:
-      damage = 1.0-make_circle_masks(DAMAGE_N, h, w).numpy()[..., None]
-      x0[-DAMAGE_N:] *= damage
-      
-  elif VIDEO:
-    x0 = np.repeat(video_seed, 4, 0)
-    video_seed = np.flip(video_seed, axis=0)
-    pad_target = tf.cast(np.repeat(video_seed[..., :4], 4, 0), tf.float32)
-  else:
-    x0 = np.repeat(seed[None, ...], BATCH_SIZE, 0)
+  x0 = np.repeat(video_seed, 4, 0)
+  #x0 = video_seed  
+  video_seed = np.roll(video_seed, 1, axis=0)
+  pad_target = tf.cast(np.repeat(video_seed[..., :4], 4, 0), tf.float32)
+  #pad_target =  video_seed
   
   ## Train
-  if VIDEO:
-    x, loss = train_step(x0)
-  else:
-    x, loss = train_step(x0)
-
-  if USE_PATTERN_POOL:
-    batch.x[:] = x
-    batch.commit()
+  
+  x, loss = train_step(x0)
 
   step_i = i
   loss_log = np.append(loss_log, loss.numpy())
