@@ -52,7 +52,7 @@ class CAModel(tf.keras.Model):
     return y
 
   @tf.function
-  def call(self, x, fire_rate=None, angle=0.0, step_size=1.0):    
+  def call(self, x, fire_rate=None, angle=0.0, step_size=2.0):    
     pre_life_mask = get_living_mask(x)
 
     # We stack the dx and dy values to each cell

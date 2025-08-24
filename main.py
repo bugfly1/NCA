@@ -63,10 +63,9 @@ seed[h//2, w//2, 3:] = 1.0
 
 
 ca = CAModel()
-
-## Trainer SetUp (????)
 loss_log = np.array([])
 
+## Trainer SetUp (????)
 lr = 2e-3
 lr_sched = tf.keras.optimizers.schedules.PiecewiseConstantDecay(
     [2000], [lr, lr*0.1])
@@ -111,7 +110,7 @@ else:
 first_loop = True
 for i in range(begining, 8000+1):
   
-  ### Generate base for CA
+  ### Generate input grids for CA
   if USE_PATTERN_POOL:
     # Sample a batch from pool
     batch = pool.sample(BATCH_SIZE)

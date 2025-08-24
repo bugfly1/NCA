@@ -24,8 +24,8 @@ class SamplePool:
 
   def __str__(self):
     string = f"""Sample pool object: 
-      _parent_idx: {self._parent_idx},
-      _size: {self._size}
+      IDs of sampled CA: {self._parent_idx},
+      Amount of sampled CA: {self._size}
       """
     string += "slots:\n"
     for k in self._slot_names:
