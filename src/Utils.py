@@ -9,76 +9,83 @@ from IPython.display import Image
 from tensorflow.python.framework import convert_to_constants
 from google.protobuf.json_format import MessageToDict
 
+import os
 import cv2
 import random
+import imageio
 
 from src.parameters import *
 
 
-# https://www.tensorflow.org/tutorials/load_data/video
-def format_frames(frame, output_size):
-  """
-    Pad and resize an image from a video.
-
-    Args:
-      frame: Image that needs to resized and padded. 
-      output_size: Pixel size of the output frame image.
-
-    Return:
-      Formatted frame with padding of specified output size.
-  """
-  frame = tf.image.convert_image_dtype(frame, tf.float32)
-  frame = tf.image.resize_with_pad(frame, *output_size)
-  return frame
-
-
-def frames_from_video_file(video_path, n_frames, output_size = (224,224), frame_step = 15):
-  """
-    Creates frames from each video file present for each category.
-
-    Args:
-      video_path: File path to the video.
-      n_frames: Number of frames to be created per video file.
-      output_size: Pixel size of the output frame image.
-
-    Return:
-      An NumPy array of frames in the shape of (n_frames, height, width, channels).
-  """
-  # Read each video frame by frame
-  result = []
-  src = cv2.VideoCapture(str(video_path))  
-
-  video_length = src.get(cv2.CAP_PROP_FRAME_COUNT)
-
-  need_length = 1 + (n_frames - 1) * frame_step
-
-  #if need_length > video_length:
-  if True:
-    start = 0
-  else:
-    max_start = video_length - need_length
-    start = random.randint(0, int(max_start) + 1)
-
-  src.set(cv2.CAP_PROP_POS_FRAMES, start)
-  # ret is a boolean indicating whether read was successful, frame is the image itself
-  ret, frame = src.read()
-  result.append(format_frames(frame, output_size))
-
-  for _ in range(n_frames - 1):
-    for _ in range(frame_step):
-      ret, frame = src.read()
-    if ret:
-      frame = format_frames(frame, output_size)
-      result.append(frame)
-    else:
-      result.append(np.zeros_like(result[0]))
-  src.release()
-  result = np.array(result)[..., [2, 1, 0]]
-
-  return result
-
-
+ 
 # Loading
+
+## Especificamente hecho para mp4
+def load_user_video(path, max_size=TARGET_SIZE, max_frames=MAX_FRAMES):
+  frames = []
+  cap = cv2.VideoCapture(path)
+  ret = True
+  dims = (max_size, max_size)
+  while ret and len(frames) < max_frames:
+    ret, img = cap.read()
+    if ret:
+      img = cv2.resize(img, dims, interpolation=cv2.INTER_AREA)
+      frames.append(img)
+    video = np.stack(frames, axis=0)
+
+  n_frames, h, w, channels = video.shape
+
+  # Agregamos el canal Alpha
+  video = np.pad(video, [(0, 0), (0, 0), (0, 0), (0,1)])
+  video[:,:,:,3] = 255  # colocamos todo como alpha = 1 ya que mp4 no posee alpha channel
+  video = np.float32(video) / 255
+  return video
+
+def load_images_as_video(dirpath=SRC_VIDEO, max_size=TARGET_SIZE, padding=TARGET_PADDING, max_frames=MAX_FRAMES):
+  images = os.listdir(dirpath)
+  n_frames = max_frames
+  if len(images) < max_frames:
+    n_frames = len(images)
+  
+  dims = (max_size, max_size)
+  p = padding
+  target_video = np.zeros((n_frames, TARGET_SIZE+2*TARGET_PADDING, TARGET_SIZE+2*TARGET_PADDING, 4))
+  for img_path, i in zip(images, range(n_frames)):
+    path = os.path.join(SRC_VIDEO, img_path)
+    img = cv2.imread(path, cv2.IMREAD_UNCHANGED)
+    img = cv2.resize(img, dims, interpolation=cv2.INTER_AREA)
+    
+    if img.shape[-1] == 3:
+      img = np.pad(img, [(0, 0), (0, 0), (0,1)])
+      img[:,:,3] = 255
+    
+    img = np.float32(img) / 255
+    
+    target_video[i] = tf.pad(img, [(p, p), (p, p), (0, 0)])
+    
+  return target_video
+
+def load_gif(path=SRC_VIDEO, max_size=TARGET_SIZE, padding=TARGET_PADDING):
+  gif = imageio.mimread(path)
+  p = padding
+  for i in range(len(gif)):
+    gif[i] = cv2.resize(gif[i], (max_size, max_size))
+    gif[i] = np.pad(gif[i], [(p, p), (p, p), (0, 0)])
+  
+    if gif[i].shape[-1] != 4:
+      alpha_channel = np.full(gif[i].shape[:-1], 255, dtype=np.float32)
+      img_rgba = np.dstack((gif[i], alpha_channel))
+      gif[i] = img_rgba
+      
+
+  temp = np.zeros([len(gif), *gif[0].shape])
+  for i in range(len(gif)):
+    temp[i] = gif[i]
+  gif = temp
+  
+  gif = np.float32(gif) / 255
+
+  return gif
 
 # El original usa imagenes de 128x128
 def load_user_image(image, max_size=TARGET_SIZE):
@@ -88,7 +95,7 @@ def load_user_image(image, max_size=TARGET_SIZE):
   # Supuestamente forza la conversion a imagenes con canal alpha
   img = PIL.Image.open(io.BytesIO(user_image)).convert("RGBA") 
   img.thumbnail((max_size, max_size), PIL.Image.LANCZOS)
-  img = np.float32(img)/255.0
+  img = np.float32(img) / 255.0
   
   
   # premultiply RGB by Alpha

@@ -3,14 +3,14 @@ import zipfile
 import numpy as np
 import tensorflow as tf
 
-from src.Utils import (load_user_image, frames_from_video_file, to_rgba, make_circle_masks, save_loss, load_loss_log, save_pool, load_pool,
+from src.Utils import (load_user_image, load_images_as_video, to_rgba, make_circle_masks, save_loss, load_loss_log, save_pool, load_pool,
                       export_model, visualize_batch, plot_loss, generate_pool_figures, export_ca_to_webgl_demo)
 from src.CAModel import CAModel
 from src.SamplePooling import SamplePool
 
 from src.parameters import *
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '0'
 os.environ['FFMPEG_BINARY'] = 'ffmpeg'
 os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
 
@@ -20,30 +20,18 @@ if not os.path.isdir(f"train_log"):
 
 
 # TODO: 
-# - Add step/frame input
 # - Divide samples depending on frame
-# - RNN (??)
-# - Support for GIFs
+# - RNN
 
 # ============== Initialize Trainig ==================
 
 
 ### Load and pad target Image
 
-#VIDEO= False
 if VIDEO:
-  N_FRAMES= 2
-  p = TARGET_PADDING
-
-  images = os.listdir(SRC_VIDEO)
-  target_video = np.zeros((2, TARGET_SIZE+2*TARGET_PADDING, TARGET_SIZE+2*TARGET_PADDING, 4))
-  for img, i in zip(images, range(N_FRAMES)):
-    path = os.path.join(SRC_VIDEO, img)
-    target_video[i] = tf.pad(load_user_image(path), [(p, p), (p, p), (0, 0)])
-
+  target_video = load_images_as_video()
+  n_frames, h, w, _ = target_video.shape
   pad_target = target_video[0]
-
-
 else:
   target_img = load_user_image(SRC_IMAGE)
   p = TARGET_PADDING
@@ -53,7 +41,7 @@ else:
 h, w = pad_target.shape[:2]
   
 if VIDEO and ROLL:
-  video_seed = np.zeros([N_FRAMES, h, w, CHANNEL_N], np.float32)
+  video_seed = np.zeros([n_frames, h, w, CHANNEL_N], np.float32)
   video_seed[:,:,:,:4] = target_video
 
 # We add invisible parameters to CA
@@ -106,9 +94,7 @@ else:
 
 
 # ========================= Training Loop =====================
-first_loop = True
 for i in range(begining, 8000+1):
-  
   ### Generate input grids for CA
   if USE_PATTERN_POOL:
     # Sample a batch from pool
@@ -132,12 +118,9 @@ for i in range(begining, 8000+1):
     pad_target = tf.cast(np.repeat(video_seed[..., :4], 4, 0), tf.float32)
   else:
     x0 = np.repeat(seed[None, ...], BATCH_SIZE, 0)
-  
+
   ## Train
-  if VIDEO:
-    x, loss = train_step(x0)
-  else:
-    x, loss = train_step(x0)
+  x, loss = train_step(x0)
 
   if USE_PATTERN_POOL:
     batch.x[:] = x
@@ -147,7 +130,7 @@ for i in range(begining, 8000+1):
   loss_log = np.append(loss_log, loss.numpy())
 
   ### Save Training Data
-  if step_i%100 == 0 and not first_loop:
+  if step_i%100 == 0:
     if not os.path.isdir(f"train_log/{step_i:04d}"):
       os.mkdir(f"train_log/{step_i:04d}")
     
@@ -159,7 +142,6 @@ for i in range(begining, 8000+1):
     save_pool(f"train_log/{step_i:04d}/{step_i:04d}_pool.npy", pool)
 
   print('\r step: %d, log10(loss): %.3f'%(i, np.log10(loss)), end='')
-  first_loop = False
 
 #  ======================= Export =======================
 with zipfile.ZipFile('webgl_models8.zip', 'w') as zf:

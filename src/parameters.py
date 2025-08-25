@@ -16,6 +16,7 @@ DAMAGE_N = [0, 0, 3, 3][EXPERIMENT_N]  # Number of patterns to damage in a batch
 VIDEO = [0, 0, 0, 1][EXPERIMENT_N]
 ROLL = [0, 0, 0, 1][EXPERIMENT_N]
 
+MAX_FRAMES = 10
 
 SRC_IMAGE = "data/images/dcc_comprimido.png"
 SRC_VIDEO = "data/Video"

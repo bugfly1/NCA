@@ -365,6 +365,8 @@ export function createCA(gl, layerWeights, gridSize) {
     }
     function reset() {
       paint(0, 0, 10000, 'clear');
+      // This creates the seed
+      // TODO: How to make the initial seed a picture
       paint(gridW/2, gridH/2, 1, 'seed');
       totalStepCount = 0;
     }
