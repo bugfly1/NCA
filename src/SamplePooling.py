@@ -4,12 +4,6 @@ import numpy as np
 
 from src.parameters import *
 
-## Esta demasiado generalizadaaaaaaa
-# Todos los batch (resultados de .sample()) son hijos del mismo pool
-# y este solamente tiene como slot 'x', los hijos tendran de slots
-# su propio batch llamado x con 8 de los 1024 que tenemos
-
-
 class SamplePool:
   def __init__(self, *, _parent=None, _parent_idx=None, **slots):
     self._parent = _parent
@@ -38,13 +32,12 @@ class SamplePool:
   def sample(self, n):
     # Select random samples
     
-    
-    # TODO: FIX ahora mismo se repiten los frames de forma iterativa, no intercalada
-    # ej. [0,0,0,0,1,1,1,1,2,2,2,2] en vez de [0,1,2,0,1,2,0,1,2]
     if ROLL:
-      idx = np.arange(n)
+      idx = np.arange(n, dtype=np.int32)
+      idx *= np.int32(np.full((n), self._size / n))
       offset = np.random.choice(int(self._size / n))
       idx +=  np.repeat(offset, n)
+      idx = idx.astype(np.int32)     
     else:
       idx = np.random.choice(self._size, n, False)
     batch = {k: getattr(self, k)[idx] for k in self._slot_names}
