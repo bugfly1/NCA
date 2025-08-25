@@ -43,23 +43,25 @@ if VIDEO:
 
   pad_target = target_video[0]
 
-  h, w = pad_target.shape[:2]
 
 else:
   target_img = load_user_image(SRC_IMAGE)
   p = TARGET_PADDING
   pad_target = tf.pad(target_img, [(p, p), (p, p), (0, 0)])
 
-  h, w = pad_target.shape[:2]
   
+h, w = pad_target.shape[:2]
   
+if VIDEO and ROLL:
+  video_seed = np.zeros([N_FRAMES, h, w, CHANNEL_N], np.float32)
+  video_seed[:,:,:,:4] = target_video
 
 # We add invisible parameters to CA
 seed = np.zeros([h, w, CHANNEL_N], np.float32)
-
 # Set center cell alive for seed
 seed[h//2, w//2, 3:] = 1.0
 
+pool = SamplePool(x=np.repeat(seed[None, ...], POOL_SIZE, 0))
 
 
 ca = CAModel()
@@ -70,9 +72,6 @@ lr = 2e-3
 lr_sched = tf.keras.optimizers.schedules.PiecewiseConstantDecay(
     [2000], [lr, lr*0.1])
 trainer = tf.keras.optimizers.Adam(lr_sched)
-
-pool = SamplePool(x=np.repeat(seed[None, ...], POOL_SIZE, 0))
-
 
 
 ### Loss Function
@@ -127,7 +126,7 @@ for i in range(begining, 8000+1):
       damage = 1.0-make_circle_masks(DAMAGE_N, h, w).numpy()[..., None]
       x0[-DAMAGE_N:] *= damage
       
-  elif VIDEO:
+  elif VIDEO and ROLL:
     x0 = np.repeat(video_seed, 4, 0)
     video_seed = np.flip(video_seed, axis=0)
     pad_target = tf.cast(np.repeat(video_seed[..., :4], 4, 0), tf.float32)
