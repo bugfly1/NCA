@@ -37,7 +37,16 @@ class SamplePool:
   # Select n samples from pool
   def sample(self, n):
     # Select random samples
-    idx = np.random.choice(self._size, n, False)
+    
+    
+    # TODO: FIX ahora mismo se repiten los frames de forma iterativa, no intercalada
+    # ej. [0,0,0,0,1,1,1,1,2,2,2,2] en vez de [0,1,2,0,1,2,0,1,2]
+    if ROLL:
+      idx = np.arange(n)
+      offset = np.random.choice(int(self._size / n))
+      idx +=  np.repeat(offset, n)
+    else:
+      idx = np.random.choice(self._size, n, False)
     batch = {k: getattr(self, k)[idx] for k in self._slot_names}
     batch = SamplePool(**batch, _parent=self, _parent_idx=idx)
     return batch

@@ -27,7 +27,6 @@ if not os.path.isdir(f"train_log"):
 
 
 ### Load and pad target Image
-
 if VIDEO:
   target_video = load_images_as_video()
   n_frames, h, w, _ = target_video.shape
@@ -41,15 +40,16 @@ else:
 h, w = pad_target.shape[:2]
   
 if VIDEO and ROLL:
-  video_seed = np.zeros([n_frames, h, w, CHANNEL_N], np.float32)
-  video_seed[:,:,:,:4] = target_video
-
-# We add invisible parameters to CA
-seed = np.zeros([h, w, CHANNEL_N], np.float32)
-# Set center cell alive for seed
-seed[h//2, w//2, 3:] = 1.0
-
-pool = SamplePool(x=np.repeat(seed[None, ...], POOL_SIZE, 0))
+  video_seed = np.pad(target_video, [(0,0), (0,0),(0,0), (0, CHANNEL_N - 4)]).astype(np.float32)
+  #print(video_seed.shape)
+  #print(np.repeat(video_seed, int(POOL_SIZE / n_frames), 0).shape)
+  pool = SamplePool(x = np.repeat(video_seed, int(POOL_SIZE / n_frames), 0))
+else:
+  # We add invisible parameters to CA
+  seed = np.zeros([h, w, CHANNEL_N], np.float32)
+  # Set center cell alive for seed
+  seed[h//2, w//2, 3:] = 1.0
+  pool = SamplePool(x=np.repeat(seed[None, ...], POOL_SIZE, 0))
 
 
 ca = CAModel()
@@ -64,13 +64,13 @@ trainer = tf.keras.optimizers.Adam(lr_sched)
 
 ### Loss Function
 def loss_f(x):
-  return tf.reduce_mean(tf.square(to_rgba(x)-pad_target), [-2, -3, -1])
+  return tf.reduce_mean(tf.square(to_rgba(x)-pad_target))
 
 
 ### Training functions
 @tf.function
 def train_step(x):
-  iter_n = tf.random.uniform([], 64, 96, tf.int32)
+  iter_n = tf.random.uniform([], N_ITER_CA[0], N_ITER_CA[1], tf.int32)
   with tf.GradientTape() as g:
     for i in tf.range(iter_n):
       x = ca(x)
@@ -92,11 +92,20 @@ else:
   begining = 0
 
 
+if ROLL:
+  pad_target = tf.cast(np.roll(target_video, -1, axis=0), tf.float32)
+  
 
 # ========================= Training Loop =====================
 for i in range(begining, 8000+1):
   ### Generate input grids for CA
-  if USE_PATTERN_POOL:
+  
+  if VIDEO and ROLL and USE_PATTERN_POOL:
+    BATCH_SIZE = n_frames
+    batch = pool.sample(BATCH_SIZE)
+    x0 = batch.x
+    
+  elif USE_PATTERN_POOL:
     # Sample a batch from pool
     batch = pool.sample(BATCH_SIZE)
     x0 = batch.x
@@ -112,10 +121,7 @@ for i in range(begining, 8000+1):
       damage = 1.0-make_circle_masks(DAMAGE_N, h, w).numpy()[..., None]
       x0[-DAMAGE_N:] *= damage
       
-  elif VIDEO and ROLL:
-    x0 = np.repeat(video_seed, 4, 0)
-    video_seed = np.flip(video_seed, axis=0)
-    pad_target = tf.cast(np.repeat(video_seed[..., :4], 4, 0), tf.float32)
+  
   else:
     x0 = np.repeat(seed[None, ...], BATCH_SIZE, 0)
 
@@ -144,5 +150,8 @@ for i in range(begining, 8000+1):
   print('\r step: %d, log10(loss): %.3f'%(i, np.log10(loss)), end='')
 
 #  ======================= Export =======================
-with zipfile.ZipFile('webgl_models8.zip', 'w') as zf:
-  zf.writestr("ex_user.json", export_ca_to_webgl_demo(ca))
+#with zipfile.ZipFile('webgl_models8.zip', 'w') as zf:
+#  zf.writestr("ex_user.json", export_ca_to_webgl_demo(ca))
+
+with open("ex_user.json") as f:
+  f.write(export_ca_to_webgl_demo(ca))
