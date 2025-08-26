@@ -211,7 +211,8 @@ def plot_loss(loss_log, step_i):
   pl.savefig('train_log/%04d/%04d_loss.jpg'%(step_i, step_i))
   #pl.show()
 
-def export_model(ca, base_fn):
+def export_model(ca, step_i):
+  base_fn = f'train_log/{step_i:04d}/{step_i:04d}.weights.h5'
   ca.save_weights(base_fn)
 
   cf = ca.call.get_concrete_function(
@@ -231,12 +232,14 @@ def export_model(ca, base_fn):
   with open(base_fn+'.json', 'w') as f:
     json.dump(model_json, f)
 
-def save_loss(file, loss_log):
-  with open(file, 'wb') as f:
+def save_loss(loss_log, step_i):
+  path = f"train_log/{step_i:04d}/{step_i:04d}_loss.npy"
+  with open(path, 'wb') as f:
     np.save(f, loss_log)
     
-def save_pool(file, pool):
-  with open(file, 'wb') as f:
+def save_pool(pool, step_i):
+  path = f"train_log/{step_i:04d}/{step_i:04d}_loss.npy"
+  with open(path, 'wb') as f:
     np.save(f, pool.x)
     
 def load_pool(file):

@@ -1,5 +1,4 @@
 #@title Train Utilities (SamplePool, Model Export, Damage)
-import tensorflow as tf
 import numpy as np
 
 from src.parameters import *
@@ -30,8 +29,6 @@ class SamplePool:
 
   # Select n samples from pool
   def sample(self, n):
-    # Select random samples
-    
     if ROLL:
       idx = np.arange(n, dtype=np.int32)
       idx *= np.int32(np.full((n), self._size / n))
@@ -40,6 +37,7 @@ class SamplePool:
       idx = idx.astype(np.int32)     
     else:
       idx = np.random.choice(self._size, n, False)
+
     batch = {k: getattr(self, k)[idx] for k in self._slot_names}
     batch = SamplePool(**batch, _parent=self, _parent_idx=idx)
     return batch

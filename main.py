@@ -20,8 +20,10 @@ if not os.path.isdir(f"train_log"):
 
 
 # TODO: 
-# - Divide samples depending on frame
-# - RNN
+# - Experimento: RNN
+# - ¿Y si agregamos la semilla como frame 1?
+
+
 
 # ============== Initialize Trainig ==================
 
@@ -36,13 +38,10 @@ else:
   p = TARGET_PADDING
   pad_target = tf.pad(target_img, [(p, p), (p, p), (0, 0)])
 
-  
 h, w = pad_target.shape[:2]
   
 if VIDEO and ROLL:
   video_seed = np.pad(target_video, [(0,0), (0,0),(0,0), (0, CHANNEL_N - 4)]).astype(np.float32)
-  #print(video_seed.shape)
-  #print(np.repeat(video_seed, int(POOL_SIZE / n_frames), 0).shape)
   pool = SamplePool(x = np.repeat(video_seed, int(POOL_SIZE / n_frames), 0))
 else:
   # We add invisible parameters to CA
@@ -51,11 +50,10 @@ else:
   seed[h//2, w//2, 3:] = 1.0
   pool = SamplePool(x=np.repeat(seed[None, ...], POOL_SIZE, 0))
 
-
 ca = CAModel()
 loss_log = np.array([])
 
-## Trainer SetUp (????)
+## Trainer SetUp
 lr = 2e-3
 lr_sched = tf.keras.optimizers.schedules.PiecewiseConstantDecay(
     [2000], [lr, lr*0.1])
@@ -64,7 +62,9 @@ trainer = tf.keras.optimizers.Adam(lr_sched)
 
 ### Loss Function
 def loss_f(x):
-  return tf.reduce_mean(tf.square(to_rgba(x)-pad_target))
+  if ROLL:
+    return tf.reduce_mean(tf.square(to_rgba(x)-pad_target), [-2, -3, -1]) # Solo es para probar, no se de que forma ayudaria
+  return tf.reduce_mean(tf.square(to_rgba(x)-pad_target), [-2, -3, -1])
 
 
 ### Training functions
@@ -74,7 +74,10 @@ def train_step(x):
   with tf.GradientTape() as g:
     for i in tf.range(iter_n):
       x = ca(x)
-    loss = tf.reduce_mean(loss_f(x))
+    if ROLL:
+      loss = tf.reduce_sum(loss_f(x))
+    else:
+      loss = tf.reduce_mean(loss_f(x))
   grads = g.gradient(loss, ca.weights)
   grads = [g/(tf.norm(g)+1e-8) for g in grads]
   trainer.apply_gradients(zip(grads, ca.weights))
@@ -100,10 +103,12 @@ if ROLL:
 for i in range(begining, 8000+1):
   ### Generate input grids for CA
   
-  if VIDEO and ROLL and USE_PATTERN_POOL:
-    BATCH_SIZE = n_frames
-    batch = pool.sample(BATCH_SIZE)
+  if ROLL and USE_PATTERN_POOL:
+    batch = pool.sample(n_frames)
     x0 = batch.x
+    if DAMAGE_N:
+      damage = 1.0-make_circle_masks(DAMAGE_N, h, w).numpy()[..., None]
+      x0[-DAMAGE_N:] *= damage
     
   elif USE_PATTERN_POOL:
     # Sample a batch from pool
@@ -143,15 +148,12 @@ for i in range(begining, 8000+1):
     generate_pool_figures(pool, step_i)
     visualize_batch(x0, x, step_i)
     plot_loss(loss_log, step_i)
-    export_model(ca, f'train_log/{step_i:04d}/{step_i:04d}.weights.h5')
-    save_loss(f"train_log/{step_i:04d}/{step_i:04d}_loss.npy", loss_log)
-    save_pool(f"train_log/{step_i:04d}/{step_i:04d}_pool.npy", pool)
+    export_model(ca, step_i)
+    save_loss(loss_log, step_i)
+    save_pool(pool, step_i)
 
   print('\r step: %d, log10(loss): %.3f'%(i, np.log10(loss)), end='')
 
 #  ======================= Export =======================
-#with zipfile.ZipFile('webgl_models8.zip', 'w') as zf:
-#  zf.writestr("ex_user.json", export_ca_to_webgl_demo(ca))
-
-with open("ex_user.json") as f:
+with open("ex_user.json", "w") as f:
   f.write(export_ca_to_webgl_demo(ca))
