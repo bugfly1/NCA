@@ -10,23 +10,21 @@ from src.SamplePooling import SamplePool
 
 from src.parameters import *
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '0'
 os.environ['FFMPEG_BINARY'] = 'ffmpeg'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
 
 
 if not os.path.isdir(f"train_log"):
   os.mkdir(f"train_log")
 
-
 # TODO: 
 # - Experimento: RNN
 # - ¿Y si agregamos la semilla como frame 1?
-
-
+# - Fix: Cuando se inicia desde checkpoint existe una 
+#   perdida de precision
 
 # ============== Initialize Trainig ==================
-
 
 ### Load and pad target Image
 if VIDEO:
@@ -62,8 +60,6 @@ trainer = tf.keras.optimizers.Adam(lr_sched)
 
 ### Loss Function
 def loss_f(x):
-  if ROLL:
-    return tf.reduce_mean(tf.square(to_rgba(x)-pad_target), [-2, -3, -1]) # Solo es para probar, no se de que forma ayudaria
   return tf.reduce_mean(tf.square(to_rgba(x)-pad_target), [-2, -3, -1])
 
 
@@ -103,7 +99,7 @@ if ROLL:
 for i in range(begining, 8000+1):
   ### Generate input grids for CA
   
-  if ROLL and USE_PATTERN_POOL:
+  if ROLL:
     batch = pool.sample(n_frames)
     x0 = batch.x
     if DAMAGE_N:
