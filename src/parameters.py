@@ -20,7 +20,7 @@ MAX_FRAMES = 10
 START_TRAINING_FROM_SAVE_POINT = False
 SAVE_POINT = 7000 # step
 
-EXPERIMENT_TYPE = "Roll" #@param ["Growing", "Persistent", "Regenerating", "Roll"]
+EXPERIMENT_TYPE = "Regenerating" #@param ["Growing", "Persistent", "Regenerating", "Roll"]
 
 # Experimentos:
 # Growing, Persistent, Regenerating: Los mismos que se encuentran en el distill

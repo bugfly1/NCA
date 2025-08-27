@@ -1,0 +1,17 @@
+# NCA
+
+Implementacion de NCA basado en "Growing Cellular Automata"
+
+## Modo de uso
+
+### Entrenamiento
+
+Para entrenar un modelo, se debe de proveer una imagen y colocar su path en ``SRC_IMAGE`` y ejecutar main.py, para hacer uso de videos como inputs se debe de colocar ``EXPERIMENT_TYPE = "Roll"`` y proveer una carpeta con imagenes y su path en ``SRC_VIDEO``.
+
+### Exportar un modelo
+
+Para exportar un modelo se debe ejecutar export.py con el path del archivo .weights.h5
+
+### Visualizacion (WIP)
+
+Para visualizar el resultado del entrenamiento, se debe colocar el json resultante del exportar el modelo del entremiento en la carpeta post--growing-ca/public/NCA/ con el con el nombre ``ex3_r.json`` (en un futuro lo hare mas facil de usar).
