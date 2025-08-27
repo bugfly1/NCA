@@ -2,8 +2,9 @@ import os
 import zipfile
 import numpy as np
 import tensorflow as tf
+import cv2
 
-from src.Utils import (load_user_image, load_images_as_video, to_rgba, make_circle_masks, save_loss, load_loss_log, save_pool, load_pool,
+from src.Utils import (load_user_image, load_user_image_cv2, imwrite, load_images_as_video, to_rgba, make_circle_masks, save_loss, load_loss_log, save_pool, load_pool,
                       export_model, visualize_batch, plot_loss, generate_pool_figures, export_ca_to_webgl_demo)
 from src.CAModel import CAModel
 from src.SamplePooling import SamplePool
@@ -37,7 +38,7 @@ else:
   pad_target = tf.pad(target_img, [(p, p), (p, p), (0, 0)])
 
 h, w = pad_target.shape[:2]
-  
+
 if VIDEO and ROLL:
   video_seed = np.pad(target_video, [(0,0), (0,0),(0,0), (0, CHANNEL_N - 4)]).astype(np.float32)
   pool = SamplePool(x = np.repeat(video_seed, int(POOL_SIZE / n_frames), 0))

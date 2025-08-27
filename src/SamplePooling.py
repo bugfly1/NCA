@@ -1,6 +1,6 @@
 import numpy as np
 
-from src.parameters import *
+from src.parameters import ROLL
 
 class SamplePool:
   def __init__(self, *, _parent=None, _parent_idx=None, **slots):

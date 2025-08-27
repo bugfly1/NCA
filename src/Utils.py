@@ -87,6 +87,19 @@ def load_gif(path=SRC_VIDEO, max_size=TARGET_SIZE, padding=TARGET_PADDING):
 
   return gif
 
+def load_user_image_cv2(image, max_size=TARGET_SIZE):
+  img = cv2.imread(image, cv2.IMREAD_UNCHANGED)
+  img = cv2.resize(img, (max_size, max_size))
+  img = np.float32(img) / 255.0
+  return img
+
+def imwrite_cv2(path, img):
+  if img.shape[-1] > 4:
+    img = to_rgba(img)
+  img = img * 255
+  cv2.imwrite(path, img)
+  return
+
 # El original usa imagenes de 128x128
 def load_user_image(image, max_size=TARGET_SIZE):
   with open(image, "rb") as f:
@@ -96,8 +109,6 @@ def load_user_image(image, max_size=TARGET_SIZE):
   img = PIL.Image.open(io.BytesIO(user_image)).convert("RGBA") 
   img.thumbnail((max_size, max_size), PIL.Image.LANCZOS)
   img = np.float32(img) / 255.0
-  
-  
   # premultiply RGB by Alpha
   img[..., :3] *= img[..., 3:]
   return img

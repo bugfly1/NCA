@@ -2,7 +2,7 @@ import tensorflow as tf
 from keras.layers import Conv2D, MaxPooling2D
 import numpy as np
 
-from src.parameters import *
+from src.parameters import CHANNEL_N, CELL_FIRE_RATE
 from src.Utils import get_living_mask
 
 class CAModel(tf.keras.Model):
