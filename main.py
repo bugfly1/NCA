@@ -99,7 +99,7 @@ if ROLL:
 for i in range(begining, 8000+1):
   ### Generate input grids for CA
   
-  if ROLL:
+  if ROLL and USE_PATTERN_POOL:
     batch = pool.sample(n_frames)
     x0 = batch.x
     if DAMAGE_N:
