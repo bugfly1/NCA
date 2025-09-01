@@ -1,5 +1,10 @@
 import { createCA } from './ca.js'
 
+async function fetch_settings(){  
+
+}
+
+
 function isInViewport(element) {
   var rect = element.getBoundingClientRect();
   var html = document.documentElement;
@@ -9,6 +14,16 @@ function isInViewport(element) {
 }
 
 export function createDemo(divId) {
+  const target_list = fetch("NCA_list.json")
+    .then(res => res.json());
+
+  const settings = fetch("settings.json")
+    .then(res => res.json());
+
+  const seed = document.createElement("img");
+  seed.setAttribute("src", settings.SEED);
+  seed.setAttribute("display", "none");
+
     const root = document.getElementById(divId);
     const $ = q=>root.querySelector(q);
     const $$ = q=>root.querySelectorAll(q);
@@ -17,13 +32,9 @@ export function createDemo(divId) {
     let demo;
     
     const modelDir = 'NCA'; 
-    let target = 'r';
-    
-    //let target = '💻';
-    //const modelDir = 'webgl_models8'; 
-    //let target = '🦎';
-
     let experiment = 'ex3';
+    let target = '💻'; 
+
     let paused = false;
 
     const canvas = $('#demo-canvas');
@@ -50,15 +61,20 @@ export function createDemo(divId) {
 
     function initUI() {
       let spriteX = 0;
-      for (let c of '🦎😀💥👁🐠🦋🐞🕸🥨') {
-        
+      let emojis = '🦎😀💥👁🐠🦋🐞🕸🥨🎄'
+
+      for (let c of emojis) {
         const div = document.createElement('div')
         div.id = c;
+        
+        
         div.style.backgroundPositionX = spriteX + 'px';
         div.onclick = ()=>{
           target = c;
           updateModel();
         }
+        
+
         spriteX -= 40;
         $('#pattern-selector').appendChild(div);
       }

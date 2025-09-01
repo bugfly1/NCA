@@ -369,6 +369,63 @@ export function createCA(gl, layerWeights, gridSize) {
       // TODO: How to make the initial seed a picture
       paint(gridW/2, gridH/2, 1, 'seed');
       totalStepCount = 0;
+      
+      // A base de puro chatGPT y fe
+
+      // Supuestamente esto consigue la informacion de una imagen y genera una textura de webgl
+      // Esto supuestamente le entrega una textura (zerodata) para que haga el display
+      // NOTESE QUE ASUMIO QUE LA IMAGEN SE ENTREGABA COMO input html, y que habra que rellenar los canales con 0,
+      // pero asume que los 4 primeros son RGBA
+    /*<input type="file" id="imgInput" accept="image/*">*/
+    /*
+    document.getElementById('imgInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const img = new Image();
+    img.onload = function() {
+        // Draw image to canvas
+        const canvas = document.createElement('canvas');
+        canvas.width = stateBuf.w;
+        canvas.height = stateBuf.h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, stateBuf.w, stateBuf.h);
+
+        // Get pixel data
+        const imgData = ctx.getImageData(0, 0, stateBuf.w, stateBuf.h).data;
+
+        // Convert to Float32Array (RGBA, normalized 0-1)
+        const floatData = new Float32Array(stateBuf.w * stateBuf.h * 4 * stateBuf.depth4);
+        for (let i = 0; i < imgData.length; i += 4) {
+            floatData[i] = imgData[i] / 255;     // R
+            floatData[i+1] = imgData[i+1] / 255; // G
+            floatData[i+2] = imgData[i+2] / 255; // B
+            floatData[i+3] = imgData[i+3] / 255; // A
+            // Fill remaining channels with 0 if needed
+        }
+
+        // Upload to texture
+        gl.bindTexture(gl.TEXTURE_2D, stateBuf.tex);
+        gl.texSubImage2D(
+            gl.TEXTURE_2D, 0, 0, 0,
+            stateBuf.w * stateBuf.gridW,
+            stateBuf.h * stateBuf.gridH,
+            gl.RGBA, gl.FLOAT, floatData
+        );
+    };
+    img.src = URL.createObjectURL(file);
+});
+    */
+      
+      /*
+        const zeroData = new Float32Array(stateBuf.w * stateBuf.h * 4 * stateBuf.depth4); // RGBA * depth4
+        gl.bindTexture(gl.TEXTURE_2D, stateBuf.tex);
+        gl.texSubImage2D(
+          gl.TEXTURE_2D, 0, 0, 0,
+          stateBuf.w * stateBuf.gridW,
+          stateBuf.h * stateBuf.gridH,
+          gl.RGBA, gl.FLOAT, zeroData
+        );
+      */
     }
     reset();
 
