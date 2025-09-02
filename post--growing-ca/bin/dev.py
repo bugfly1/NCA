@@ -33,7 +33,8 @@ def build():
 class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         if self.path in ['/', '/index.html']:
-            build()
+            pass
+            #build()
         if six.PY3:
             super().do_GET()
         else:
@@ -56,5 +57,5 @@ def list_NCA():
 if __name__ == '__main__':
     os.chdir('public')
     list_NCA()
-    build()
+    #build()
     test(HandlerClass=Handler)

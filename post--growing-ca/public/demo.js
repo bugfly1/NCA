@@ -1,8 +1,6 @@
 import { createCA } from './ca.js'
-
-async function fetch_settings(){  
-
-}
+import target_list from './NCA_list.json' with {type: "json"}
+import settings from './settings.json' with {type: "json"}
 
 
 function isInViewport(element) {
@@ -14,12 +12,6 @@ function isInViewport(element) {
 }
 
 export function createDemo(divId) {
-  const target_list = fetch("NCA_list.json")
-    .then(res => res.json());
-
-  const settings = fetch("settings.json")
-    .then(res => res.json());
-
   const seed = document.createElement("img");
   seed.setAttribute("src", settings.SEED);
   seed.setAttribute("display", "none");
@@ -31,7 +23,7 @@ export function createDemo(divId) {
     const W=96, H=96;
     let demo;
     
-    const modelDir = 'NCA'; 
+    const modelDir = settings.modelDir; 
     let experiment = 'ex3';
     let target = '💻'; 
 
@@ -62,22 +54,25 @@ export function createDemo(divId) {
     function initUI() {
       let spriteX = 0;
       let emojis = '🦎😀💥👁🐠🦋🐞🕸🥨🎄'
-
-      for (let c of emojis) {
-        const div = document.createElement('div')
-        div.id = c;
-        
-        
-        div.style.backgroundPositionX = spriteX + 'px';
-        div.onclick = ()=>{
-          target = c;
-          updateModel();
-        }
-        
+      
+      for (let c of target_list) {
+        const option = document.createElement('option')
+        option.id = c;
+        option.value = c;
+        option.innerHTML = c
+        //option.style.backgroundPositionX = spriteX + 'px';
 
         spriteX -= 40;
-        $('#pattern-selector').appendChild(div);
+        $('#pattern-selector').appendChild(option);
       }
+
+      $('#pattern-selector').value = target_list[0]
+      
+      $('#pattern-selector').onchange = ()=>{
+        target = $('#pattern-selector').value;
+        updateModel();
+      };
+
       $('#reset').onclick = demo.reset;
       $('#play-pause').onclick = ()=>{
         paused = !paused;
