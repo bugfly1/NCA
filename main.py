@@ -24,6 +24,8 @@ if not os.path.isdir(f"train_log"):
 # - ¿Y si agregamos la semilla como frame 1?
 # - Fix: Cuando se inicia desde checkpoint existe una 
 #   perdida de precision
+# - Agregar Loss function propuesta por Mircea
+# - Probar el colocar parametros constantes
 
 # ============== Initialize Trainig ==================
 
@@ -33,7 +35,7 @@ if VIDEO:
   n_frames, h, w, _ = target_video.shape
   pad_target = target_video[0]
 else:
-  target_img = load_user_image(SRC_IMAGE)
+  target_img = load_user_image_cv2(SRC_IMAGE)
   p = TARGET_PADDING
   pad_target = tf.pad(target_img, [(p, p), (p, p), (0, 0)])
 
@@ -147,7 +149,9 @@ for i in range(begining, 8000+1):
     plot_loss(loss_log, step_i)
     export_model(ca, step_i)
     save_loss(loss_log, step_i)
-    save_pool(pool, step_i)
+    
+    # Un pool de 1024 son 300-500 MB
+    #save_pool(pool, step_i)
 
   print('\r step: %d, log10(loss): %.3f'%(i, np.log10(loss)), end='')
 

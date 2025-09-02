@@ -205,13 +205,13 @@ def generate_pool_figures(pool, step_i):
   tiled_pool[:, -72:] += (-tiled_pool[:, -72:] + ones[None, :, None]) * fade[None, ::-1, None]
   tiled_pool[:72, :] += (-tiled_pool[:72, :] + ones[:, None, None]) * fade[:, None, None]
   tiled_pool[-72:, :] += (-tiled_pool[-72:, :] + ones[:, None, None]) * fade[::-1, None, None]
-  imwrite('train_log/%04d/%04d_pool.jpg'%(step_i, step_i), tiled_pool)
+  imwrite_cv2('train_log/%04d/%04d_pool.jpg'%(step_i, step_i), tiled_pool)
 
 def visualize_batch(x0, x, step_i):
   vis0 = np.hstack(to_rgb(x0).numpy())
   vis1 = np.hstack(to_rgb(x).numpy())
   vis = np.vstack([vis0, vis1])
-  imwrite('train_log/%04d/batches_%04d.jpg'%(step_i, step_i), vis)
+  imwrite_cv2('train_log/%04d/batches_%04d.jpg'%(step_i, step_i), vis)
   #print('batch (before/after):')
   #imshow(vis)
 

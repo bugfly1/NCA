@@ -29,6 +29,10 @@ class CAModel(tf.keras.Model):
     """
     return string
   
+  # Si se pueden agregar canales "constantes", solo hay que colocarlos al final del
+  # Perception vector, ya que el output de la CNN solamente entrega 16 canales en el output
+  # "A Neurall Cellular Automaton Model for Memory Transfer"
+  # https://www.youtube.com/watch?v=iyc0943z464
   
   @tf.function
   def perceive(self, x, angle=0.0):
