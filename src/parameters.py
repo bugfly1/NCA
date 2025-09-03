@@ -20,13 +20,12 @@ MAX_FRAMES = 10
 START_TRAINING_FROM_SAVE_POINT = False
 SAVE_POINT = 7000 # step
 
-EXPERIMENT_TYPE = "Regenerating" #@param ["Growing", "Persistent", "Regenerating", "Roll"]
+EXPERIMENT_TYPE = "Roll" #@param ["Growing", "Persistent", "Regenerating", "Roll"]
 
 # Experimentos:
 # Growing, Persistent, Regenerating: Los mismos que se encuentran en el distill
 # Roll: Primera implementacion de videos como inputs, cada batch son todos los 
-#       frames del video y se comparan con el frame siguiente en loss_f(), 
-#       no parece dar resultados
+#       frames del video y se comparan con el frame siguiente en loss_f()
 
 EXPERIMENT_MAP = {"Growing":0, "Persistent":1, "Regenerating":2, "Roll": 3}
 EXPERIMENT_N = EXPERIMENT_MAP[EXPERIMENT_TYPE]

@@ -19,13 +19,12 @@ os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
 if not os.path.isdir(f"train_log"):
   os.mkdir(f"train_log")
 
-# TODO: 
+# TODO:
 # - Experimento: RNN
 # - ¿Y si agregamos la semilla como frame 1?
-# - Fix: Cuando se inicia desde checkpoint existe una 
-#   perdida de precision
-# - Agregar Loss function propuesta por Mircea
 # - Probar el colocar parametros constantes
+# - Decidir la forma de entregar los frames del video
+# - Poder manipular la seed de la visualizacion
 
 # ============== Initialize Trainig ==================
 
@@ -60,11 +59,23 @@ lr_sched = tf.keras.optimizers.schedules.PiecewiseConstantDecay(
     [2000], [lr, lr*0.1])
 trainer = tf.keras.optimizers.Adam(lr_sched)
 
+def softmin(x):
+  b = 1000
+  return (1/-b) * tf.math.log(tf.reduce_sum(tf.exp(-b*x), [-1]))
+
+
+def pixelWiseMSE(x, target):
+  return tf.reduce_mean(tf.square(to_rgba(x)-target), [-2, -3, -1])
 
 ### Loss Function
 def loss_f(x):
-  return tf.reduce_mean(tf.square(to_rgba(x)-pad_target), [-2, -3, -1])
-
+  if not ROLL:
+    return pixelWiseMSE(x, pad_target)
+  else:
+    rolls = np.array([np.roll(target_video, k) for k in range(n_frames)])
+    MSE = tf.convert_to_tensor([pixelWiseMSE(x, rolls[k]) for k in range(n_frames)], dtype=tf.float32)
+    return softmin(MSE)
+    
 
 ### Training functions
 @tf.function
@@ -73,10 +84,12 @@ def train_step(x):
   with tf.GradientTape() as g:
     for i in tf.range(iter_n):
       x = ca(x)
-    if ROLL:
-      loss = tf.reduce_sum(loss_f(x))
-    else:
-      loss = tf.reduce_mean(loss_f(x))
+      if ROLL:
+        loss = tf.reduce_max(loss_f(x))
+      else:
+        loss = tf.reduce_mean(loss_f(x))
+        
+      print("loss", loss)
   grads = g.gradient(loss, ca.weights)
   grads = [g/(tf.norm(g)+1e-8) for g in grads]
   trainer.apply_gradients(zip(grads, ca.weights))
