@@ -3,7 +3,5 @@ __pycache__
 pyvenv.cfg
 .venv
 
-
-data
 share
 train_log
