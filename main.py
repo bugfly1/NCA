@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 import cv2
 
-from src.Utils import (load_user_image, load_user_image_cv2, imwrite, load_images_as_video, to_rgba, make_circle_masks, save_loss, load_loss_log, save_pool, load_pool,
+from src.Utils import (load_target, load_user_image, imwrite, load_images_as_video, to_rgba, make_circle_masks, save_loss, load_loss_log, save_pool, load_pool,
                       export_model, visualize_batch, plot_loss, generate_pool_figures, export_ca_to_webgl_demo)
 from src.CAModel import CAModel
 from src.SamplePooling import SamplePool
@@ -28,27 +28,27 @@ if not os.path.isdir(f"train_log"):
 
 # ============== Initialize Trainig ==================
 
+pad_target = load_target(SRC_IMAGE)
+n_frames = 1
+
 ### Load and pad target Image
 if VIDEO:
-  target_video = load_images_as_video()
-  n_frames, h, w, _ = target_video.shape
-  pad_target = target_video[0]
-else:
-  target_img = load_user_image_cv2(SRC_IMAGE)
-  p = TARGET_PADDING
-  pad_target = tf.pad(target_img, [(p, p), (p, p), (0, 0)])
+  pad_target = load_target(SRC_VIDEO)
+  n_frames = pad_target.shape[0]
 
-h, w = pad_target.shape[:2]
+h, w, _ = pad_target.shape[-3:]
+
+# We add invisible parameters to CA
+seed = np.zeros([h, w, CHANNEL_N], np.float32)
+# Set center cell alive for seed
+seed[h//2, w//2, 3:] = 1.0
+pool = SamplePool(x=np.repeat(seed[None, ...], POOL_SIZE, 0))
 
 if VIDEO and ROLL:
-  video_seed = np.pad(target_video, [(0,0), (0,0),(0,0), (0, CHANNEL_N - 4)]).astype(np.float32)
+  video_seed = np.pad(pad_target, [(0,0), (0,0),(0,0), (0, CHANNEL_N - 4)]).astype(np.float32)
   pool = SamplePool(x = np.repeat(video_seed, int(POOL_SIZE / n_frames), 0))
-else:
-  # We add invisible parameters to CA
-  seed = np.zeros([h, w, CHANNEL_N], np.float32)
-  # Set center cell alive for seed
-  seed[h//2, w//2, 3:] = 1.0
-  pool = SamplePool(x=np.repeat(seed[None, ...], POOL_SIZE, 0))
+  video_seed = tf.cast(np.roll(video_seed, -1, axis=0), tf.float32)
+
 
 ca = CAModel()
 loss_log = np.array([])
@@ -60,7 +60,7 @@ lr_sched = tf.keras.optimizers.schedules.PiecewiseConstantDecay(
 trainer = tf.keras.optimizers.Adam(lr_sched)
 
 def softmin(x):
-  b = 1000
+  b = 100
   return (1/-b) * tf.math.log(tf.reduce_sum(tf.exp(-b*x), [-1]))
 
 
@@ -72,7 +72,7 @@ def loss_f(x):
   if not ROLL:
     return pixelWiseMSE(x, pad_target)
   else:
-    rolls = np.array([np.roll(target_video, k) for k in range(n_frames)])
+    rolls = np.array([np.roll(to_rgba(pad_target), k) for k in range(n_frames)])
     MSE = tf.convert_to_tensor([pixelWiseMSE(x, rolls[k]) for k in range(n_frames)], dtype=tf.float32)
     return softmin(MSE)
     
@@ -89,7 +89,7 @@ def train_step(x):
       else:
         loss = tf.reduce_mean(loss_f(x))
         
-      print("loss", loss)
+      #print("loss", loss)
   grads = g.gradient(loss, ca.weights)
   grads = [g/(tf.norm(g)+1e-8) for g in grads]
   trainer.apply_gradients(zip(grads, ca.weights))
@@ -106,11 +106,7 @@ if START_TRAINING_FROM_SAVE_POINT:
 else:
   begining = 0
 
-
-if ROLL:
-  pad_target = tf.cast(np.roll(target_video, -1, axis=0), tf.float32)
   
-
 # ========================= Training Loop =====================
 for i in range(begining, 8000+1):
   ### Generate input grids for CA

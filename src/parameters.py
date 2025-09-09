@@ -14,7 +14,7 @@ SRC_IMAGE = "data/images/dcc_comprimido.png"
 # Ahora mismo, recibe un directorio con imagenes que considera un video,
 # en Utils hay funciones para usar mp4 y gifs pero esto ayuda a controlar 
 # la cantidad de frames
-SRC_VIDEO = "data/Video"
+SRC_VIDEO = "data/Video/flame-21186_128.gif"
 MAX_FRAMES = 10
 
 START_TRAINING_FROM_SAVE_POINT = False

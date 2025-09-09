@@ -5,6 +5,5 @@ pyvenv.cfg
 
 
 data
-models
 share
 train_log

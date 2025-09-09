@@ -21,7 +21,7 @@ from src.parameters import *
 # Loading
 
 ## Especificamente hecho para mp4
-def load_user_video(path, max_size=TARGET_SIZE, max_frames=MAX_FRAMES):
+def load_user_video(path, max_size=TARGET_SIZE, max_frames=MAX_FRAMES, padding = TARGET_PADDING):
   frames = []
   cap = cv2.VideoCapture(path)
   ret = True
@@ -38,7 +38,11 @@ def load_user_video(path, max_size=TARGET_SIZE, max_frames=MAX_FRAMES):
   # Agregamos el canal Alpha
   video = np.pad(video, [(0, 0), (0, 0), (0, 0), (0,1)])
   video[:,:,:,3] = 255  # colocamos todo como alpha = 1 ya que mp4 no posee alpha channel
+  
+  p = padding
+  video = np.pad(video, [(0, 0), (p, p), (p, p), (0,0)])
   video = np.float32(video) / 255
+  
   return video
 
 def load_images_as_video(dirpath=SRC_VIDEO, max_size=TARGET_SIZE, padding=TARGET_PADDING, max_frames=MAX_FRAMES):
@@ -81,39 +85,41 @@ def load_gif(path=SRC_VIDEO, max_size=TARGET_SIZE, padding=TARGET_PADDING):
   temp = np.zeros([len(gif), *gif[0].shape])
   for i in range(len(gif)):
     temp[i] = gif[i]
-  gif = temp
   
+  gif = temp
   gif = np.float32(gif) / 255
 
   return gif
 
-def load_user_image_cv2(image, max_size=TARGET_SIZE):
+def load_user_image(image, max_size=TARGET_SIZE, padding=TARGET_PADDING):
   img = cv2.imread(image, cv2.IMREAD_UNCHANGED)
   img = cv2.resize(img, (max_size, max_size))
+  p = padding
+  img = np.pad(img, [(p, p), (p, p), (0, 0)])
   img = np.float32(img) / 255.0
   return img
 
-def imwrite_cv2(path, img):
+def imwrite(path, img):
   if img.shape[-1] > 4:
     img = to_rgba(img)
   img = img * 255
   cv2.imwrite(path, img)
   return
 
-# El original usa imagenes de 128x128
-def load_user_image(image, max_size=TARGET_SIZE):
-  with open(image, "rb") as f:
-    user_image = f.read()
 
-  # Supuestamente forza la conversion a imagenes con canal alpha
-  img = PIL.Image.open(io.BytesIO(user_image)).convert("RGBA") 
-  img.thumbnail((max_size, max_size), PIL.Image.LANCZOS)
-  img = np.float32(img) / 255.0
-  # premultiply RGB by Alpha
-  img[..., :3] *= img[..., 3:]
-  return img
-
-
+def load_target(path):
+    if path.endswith(".png"):
+        return load_user_image(path)
+    elif path.endswith(".mp4"):
+        return load_user_video(path)
+    elif path.endswith(".gif"):
+        return load_gif(path)
+    elif os.path.isdir(path):
+        return load_images_as_video(path)
+    else:
+        raise ValueError("Target format not supported")
+    
+    
 # Visual utilities
 def to_rgba(x):
   return x[..., :4]
@@ -137,20 +143,10 @@ def make_seed(size, n=1):
   x[:, size//2, size//2, 3:] = 1.0
   return x
 
-
 def np2pil(a):
   if a.dtype in [np.float32, np.float64]:
     a = np.uint8(np.clip(a, 0, 1)*255)
   return PIL.Image.fromarray(a)
-
-def imwrite(f, a, fmt=None):
-  a = np.asarray(a)
-  if isinstance(f, str):
-    fmt = f.rsplit('.', 1)[-1].lower()
-    if fmt == 'jpg':
-      fmt = 'jpeg'
-    f = open(f, 'wb')
-  np2pil(a).save(f, fmt, quality=95)
 
 def imencode(a, fmt='jpeg'):
   a = np.asarray(a)
@@ -205,13 +201,13 @@ def generate_pool_figures(pool, step_i):
   tiled_pool[:, -72:] += (-tiled_pool[:, -72:] + ones[None, :, None]) * fade[None, ::-1, None]
   tiled_pool[:72, :] += (-tiled_pool[:72, :] + ones[:, None, None]) * fade[:, None, None]
   tiled_pool[-72:, :] += (-tiled_pool[-72:, :] + ones[:, None, None]) * fade[::-1, None, None]
-  imwrite_cv2('train_log/%04d/%04d_pool.jpg'%(step_i, step_i), tiled_pool)
+  imwrite('train_log/%04d/%04d_pool.jpg'%(step_i, step_i), tiled_pool)
 
 def visualize_batch(x0, x, step_i):
   vis0 = np.hstack(to_rgb(x0).numpy())
   vis1 = np.hstack(to_rgb(x).numpy())
   vis = np.vstack([vis0, vis1])
-  imwrite_cv2('train_log/%04d/batches_%04d.jpg'%(step_i, step_i), vis)
+  imwrite('train_log/%04d/batches_%04d.jpg'%(step_i, step_i), vis)
   #print('batch (before/after):')
   #imshow(vis)
 

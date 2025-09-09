@@ -3,27 +3,18 @@ import numpy as np
 from src.parameters import ROLL
 
 class SamplePool:
-  def __init__(self, *, _parent=None, _parent_idx=None, **slots):
+  def __init__(self, *, _parent=None, _parent_idx=None, x=None):
     self._parent = _parent
     self._parent_idx = _parent_idx
-    self._slot_names = slots.keys()
-    self._size = None
-    for k, v in slots.items():
-      if self._size is None:
-        self._size = len(v)
-      assert self._size == len(v)
-      setattr(self, k, np.asarray(v))
+    self._size = len(x)
+    self.x = x
 
   def __str__(self):
     string = f"""Sample pool object: 
       IDs of sampled CA: {self._parent_idx},
       Amount of sampled CA: {self._size}
       """
-    string += "slots:\n"
-    for k in self._slot_names:
-      value = getattr(self, k)
-      if type(value) == np.ndarray:
-        string += f"\t {k}: (np.array), {value.shape}"
+    string += f"x = {self.x.shape}"
     return string
 
   # Select n samples from pool
@@ -33,15 +24,14 @@ class SamplePool:
       idx *= np.int32(np.full((n), self._size / n))
       offset = np.random.choice(int(self._size / n))
       idx +=  np.repeat(offset, n)
-      idx = idx.astype(np.int32)     
+      idx = idx.astype(np.int32)
     else:
       idx = np.random.choice(self._size, n, False)
 
-    batch = {k: getattr(self, k)[idx] for k in self._slot_names}
-    batch = SamplePool(**batch, _parent=self, _parent_idx=idx)
+    batch = self.x[idx]
+    batch = SamplePool(x=batch, _parent=self, _parent_idx=idx)
     return batch
 
   # Update samples from pool
   def commit(self):
-    for k in self._slot_names:
-      getattr(self._parent, k)[self._parent_idx] = getattr(self, k)
+    self._parent.x[self._parent_idx] = self.x
