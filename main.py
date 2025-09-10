@@ -28,13 +28,17 @@ if not os.path.isdir(f"train_log"):
 
 # ============== Initialize Trainig ==================
 
-pad_target = load_target(SRC_IMAGE)
+pad_target = load_target(SRC_TARGET)
+pad_target = tf.cast(pad_target, tf.float32)
+
 n_frames = 1
 
 ### Load and pad target Image
 if VIDEO:
-  pad_target = load_target(SRC_VIDEO)
   n_frames = pad_target.shape[0]
+  
+  if n_frames > BATCH_SIZE: # Sacar esto apenas se logre comparar la tupla de T en loss
+    pad_target = pad_target[:BATCH_SIZE,:,:,:]
 
 h, w, _ = pad_target.shape[-3:]
 
@@ -81,13 +85,15 @@ def loss_f(x):
 @tf.function
 def train_step(x):
   iter_n = tf.random.uniform([], N_ITER_CA[0], N_ITER_CA[1], tf.int32)
+  
   with tf.GradientTape() as g:
     for i in tf.range(iter_n):
       x = ca(x)
-      if ROLL:
-        loss = tf.reduce_max(loss_f(x))
-      else:
-        loss = tf.reduce_mean(loss_f(x))
+    
+    if ROLL:
+      loss = tf.reduce_max(loss_f(x))
+    else:
+      loss = tf.reduce_mean(loss_f(x))
         
       #print("loss", loss)
   grads = g.gradient(loss, ca.weights)
@@ -137,6 +143,7 @@ for i in range(begining, 8000+1):
   
   else:
     x0 = np.repeat(seed[None, ...], BATCH_SIZE, 0)
+    
 
   ## Train
   x, loss = train_step(x0)

@@ -21,19 +21,21 @@ from src.parameters import *
 # Loading
 
 ## Especificamente hecho para mp4
-def load_user_video(path, max_size=TARGET_SIZE, max_frames=MAX_FRAMES, padding = TARGET_PADDING):
+def load_user_video(path, max_size=TARGET_SIZE, padding = TARGET_PADDING):
   frames = []
   cap = cv2.VideoCapture(path)
+  
+  if not cap.isOpened():
+    raise ValueError("Error: Could not open video file")
+  
   ret = True
   dims = (max_size, max_size)
-  while ret and len(frames) < max_frames:
+  while ret:
     ret, img = cap.read()
     if ret:
       img = cv2.resize(img, dims, interpolation=cv2.INTER_AREA)
       frames.append(img)
     video = np.stack(frames, axis=0)
-
-  n_frames, h, w, channels = video.shape
 
   # Agregamos el canal Alpha
   video = np.pad(video, [(0, 0), (0, 0), (0, 0), (0,1)])
@@ -45,17 +47,15 @@ def load_user_video(path, max_size=TARGET_SIZE, max_frames=MAX_FRAMES, padding =
   
   return video
 
-def load_images_as_video(dirpath=SRC_VIDEO, max_size=TARGET_SIZE, padding=TARGET_PADDING, max_frames=MAX_FRAMES):
+def load_images_as_video(dirpath, max_size=TARGET_SIZE, padding=TARGET_PADDING):
   images = os.listdir(dirpath)
-  n_frames = max_frames
-  if len(images) < max_frames:
-    n_frames = len(images)
+  n_frames = len(images)
   
   dims = (max_size, max_size)
   p = padding
   target_video = np.zeros((n_frames, TARGET_SIZE+2*TARGET_PADDING, TARGET_SIZE+2*TARGET_PADDING, 4))
   for img_path, i in zip(images, range(n_frames)):
-    path = os.path.join(SRC_VIDEO, img_path)
+    path = os.path.join(dirpath, img_path)
     img = cv2.imread(path, cv2.IMREAD_UNCHANGED)
     img = cv2.resize(img, dims, interpolation=cv2.INTER_AREA)
     
@@ -65,11 +65,11 @@ def load_images_as_video(dirpath=SRC_VIDEO, max_size=TARGET_SIZE, padding=TARGET
     
     img = np.float32(img) / 255
     
-    target_video[i] = tf.pad(img, [(p, p), (p, p), (0, 0)])
+    target_video[i] = np.pad(img, [(p, p), (p, p), (0, 0)])
     
   return target_video
 
-def load_gif(path=SRC_VIDEO, max_size=TARGET_SIZE, padding=TARGET_PADDING):
+def load_gif(path, max_size=TARGET_SIZE, padding=TARGET_PADDING):
   gif = imageio.mimread(path)
   p = padding
   for i in range(len(gif)):
