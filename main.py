@@ -3,7 +3,7 @@ import numpy as np
 import tensorflow as tf
 from src.Utils import (load_target, imwrite, to_rgba, make_circle_masks, save_loss, load_training,
                       export_model, visualize_batch, visualize_target, visualize_series, visualize_step_seed, plot_loss, 
-                      generate_pool_figures, save_rolls, export_ca_to_webgl_demo)
+                      generate_pool_figures, to_rgb, save_rolls, export_ca_to_webgl_demo)
 from src.CAModel import CAModel
 from src.SamplePooling import SamplePool
 from src.parameters import *
@@ -30,33 +30,28 @@ os.system('clear')
 # TODO:
 # - Experimento: RNN
 # - ¿Y si agregamos la semilla como frame 1?
-# - Probar el colocar parametros constantes
-# - Decidir la forma de entregar los frames del video
-# - Poder manipular la seed de la visualizacion
+# - Probar entregar parametros constantes como input
+# - Probar softmin con y sin perdida en log 10
 
 # ============== Initialize Trainig ==================
 
-
 # Input loading
 pad_target = load_target(SRC_TARGET)
-visualize_target(pad_target)
-
 n_frames = 1
 
 ### Load and pad target Image
 if VIDEO:
     n_frames = pad_target.shape[0]
-    #if n_frames > BATCH_SIZE: # Sacar esto apenas se logre comparar la tupla de T en loss
-    #    pad_target = pad_target[:BATCH_SIZE,:,:,:]
 
 h, w, _ = pad_target.shape[-3:]
 
 # We add invisible parameters to CA
-seed = np.zeros([h, w, CHANNEL_N], np.float32)
+seed = np.zeros([h, w, CHANNEL_N], dtype=np.float32)
 # Set center cell alive for seed
 seed[h//2, w//2, 3:] = 1.0
 pool = SamplePool(x=np.repeat(seed[None, ...], POOL_SIZE, 0))
 
+visualize_target(pad_target)
 
 if ROLL:
     video_seed = np.pad(pad_target, [(0,0), (0,0),(0,0), (0, CHANNEL_N - 4)]).astype(np.float32)
@@ -72,28 +67,30 @@ else:
 
 ### Loss Functions
 def softmin(x):
-    b = 1
-    return (1/b) * tf.math.log(tf.reduce_sum(tf.exp(x)))
+    b = 100
+    return -(1/b) * tf.math.log(tf.reduce_sum(tf.exp(-b*x)))
 
 def LogSumExp(x):
     return tf.math.log(tf.reduce_sum(tf.exp(x)))
 
-# TODO: Huber Loss
-delta = 100
+delta = 300
 def pixelWiseHuberLoss(x, target):
-    if tf.reduce_sum(tf.abs(to_rgba(x) - target)) <= delta:
+    if tf.reduce_mean(tf.abs(to_rgba(x) - target)) <= delta:
         return pixelWiseMSE(x, target)
     else:
-        return delta * tf.abs(to_rgba(x) - target) - 0.5 * delta**2
-    
+        return tf.reduce_mean(delta * (tf.abs(to_rgba(x) - target) - (0.5 * delta)))
+
+def pixelWiseMEA(x, target):
+    return tf.reduce_mean(tf.abs(to_rgba(x)-target), [-2,-3,-1])
+
 def pixelWiseMSE(x, target):
-    return tf.reduce_mean(tf.square((to_rgba(x)-target)/(h*w)), [-2, -3, -1]) 
+    return tf.reduce_mean(tf.square((to_rgba(x)-target)), [-2, -3, -1]) 
 
 def loss_serie(serie_CA, serie_extendida):
-    lista_mses = [tf.reduce_mean(pixelWiseMSE(serie_CA, tf.roll(serie_extendida, t, axis=0))) for t in range(n_frames)]
-    MSE = tf.convert_to_tensor([tf.reduce_mean(pixelWiseMSE(serie_CA, tf.roll(serie_extendida, t, axis=0))) for t in range(n_frames)], dtype=tf.float32)
-    tf.print("\nLista de MSEs:", lista_mses, "\n")
-    return LogSumExp(MSE)
+    error = [tf.reduce_mean(pixelWiseMSE(serie_CA, tf.roll(serie_extendida, t, axis=0))) for t in range(n_frames)]
+    tf.print("\nError por t:", error, "\n")
+    MSE = tf.convert_to_tensor(error, dtype=tf.float32)
+    return softmin(MSE)
     
     
 @tf.function    
@@ -101,15 +98,15 @@ def loss_f(x):
     if not ROLL:
         return pixelWiseMSE(x, pad_target)
     else:
-        rolls = np.array([np.roll(to_rgba(pad_target), k) for k in range(n_frames)])
-        rolls = tf.cast(rolls, dtype=tf.float32)
-        MSE = tf.convert_to_tensor([pixelWiseMSE(x, rolls[k]) for k in range(n_frames)], dtype=tf.float32)
+        MSE = tf.convert_to_tensor([pixelWiseMSE(x, np.roll(to_rgba(pad_target), k, axis=0)) for k in range(n_frames)], dtype=tf.float32)
         return softmin(MSE)
 
 
 
 if SERIE:
-    serie_temporal_extendida = tf.repeat(pad_target, T, axis=0)
+    serie_temporal_extendida = np.repeat(pad_target, T, axis=0)
+    # Duplica el video
+    serie_temporal_extendida = np.append(serie_temporal_extendida, serie_temporal_extendida, axis=0)
     n_frames = len(serie_temporal_extendida)
     visualize_target(serie_temporal_extendida)
     
@@ -121,7 +118,7 @@ def train_serie(x):
             for i in tf.range(ITER_FRAME):
                 x = ca(x)
             lista_serie.append(x[0])
-                
+
         serie_CA = tf.convert_to_tensor(lista_serie)
         loss = loss_serie(serie_CA, serie_temporal_extendida)
     
@@ -180,7 +177,10 @@ for i in range(begining, 8000+1):
     #    if type(x) == int:
     #        x0 = np.repeat(seed[None, ...], 1, 0)
     #    else:
-    #        x0 = x
+    #        if np.random.randint(2) < 1:
+    #            x0 = x
+    #        else:
+    #            x0 = np.repeat(seed[None, ...], 1, 0)
     else:
         x0 = np.repeat(seed[None, ...], BATCH_SIZE, 0)
     
@@ -199,7 +199,7 @@ for i in range(begining, 8000+1):
     loss_log = np.append(loss_log, loss.numpy())
 
     ### Save Training Data
-    if step_i%50 == 0:
+    if step_i%100 == 0:
         if not os.path.isdir(f"train_log/{step_i:04d}"):
             os.mkdir(f"train_log/{step_i:04d}")
         
@@ -218,7 +218,9 @@ for i in range(begining, 8000+1):
         # Un pool de 1024 son 300-500 MB
         #save_pool(pool, step_i)
 
-    print('\r step: %d, log10(loss): %.3f'%(i, np.log10(loss)), end='')
+    #print('\r step: %d, log10(loss): %.3f'%(i, np.log10(loss)), end='')
+    print('\r step: %d, loss: %f'%(i, loss), end='')
+    
 
 #  ======================= Export =======================
 with open("ex_user.json", "w") as f:

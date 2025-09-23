@@ -1,7 +1,7 @@
 # ==================== Parametros ================================
 
 CHANNEL_N = 16        # Number of CA state channels
-TARGET_PADDING = 4   # Number of pixels used to pad the target image border
+TARGET_PADDING = 4    # Number of pixels used to pad the target image border
 TARGET_SIZE = 40
 BATCH_SIZE = 8     
 POOL_SIZE = 1024
@@ -11,7 +11,7 @@ CELL_FIRE_RATE = 0.5
 # Extension de serie temporal
 T = 1
 
-# Numero de iteraciones por frame o calibracion de relojes internos
+# Numero de iteraciones por frame o "calibracion de relojes internos"
 ITER_FRAME = 16
 
 

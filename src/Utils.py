@@ -196,22 +196,14 @@ def visualize_batch(x0, x, step_i):
 def visualize_target(target):
   vis = np.hstack(to_rgb(target).numpy())
   imwrite('train_log/target.jpg', vis)
-  #print('batch (before/after):')
-  #imshow(vis)
 
 def visualize_series(serie_CA, step_i):
   vis = np.hstack(to_rgb(serie_CA).numpy())
   imwrite('train_log/%04d/serie_%04d.jpg'%(step_i, step_i), vis)
-  cv2.destroyAllWindows()
-  #print('batch (before/after):')
-  #imshow(vis)
   
 def visualize_step_seed(seed, step_i):
   seed = to_rgb(seed[0]).numpy()
   imwrite('train_log/%04d/seed_%04d.jpg'%(step_i, step_i), seed)
-  cv2.destroyAllWindows()
-  
- 
   
   
 def save_rolls(serie_temporal):
@@ -222,8 +214,10 @@ def save_rolls(serie_temporal):
 
 def plot_loss(loss_log, step_i):
   pl.figure(figsize=(10, 4))
-  pl.title('Loss history (log10)')
-  pl.plot(np.log10(loss_log), '.', alpha=0.1)
+  #pl.title('Loss history (log10)')
+  #pl.plot(np.log10(loss_log), '.', alpha=0.1)
+  pl.title('Loss history')
+  pl.plot(loss_log, '.', alpha=0.1)
   pl.savefig('train_log/%04d/%04d_loss.jpg'%(step_i, step_i))
   pl.close()
   #pl.show()

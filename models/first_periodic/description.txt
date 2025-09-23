@@ -1,0 +1,11 @@
+Perdida de MSE y softmin con b=100
+
+Video heavy_difference.mp4 con
+T=1 y ITER_FRAME=16
+TARGET_PADDING = 4,
+TARGET_SIZE = 40
+CHANNEL_N = 16
+
+Cada step comienza desde seed, pero el target es el video duplicado osea que
+si f_0 es el primer y f_T es el ultimo frame del video tenemos que 
+f_0 = f_(T+1) y f_(2T) es el ultimo frame del target
