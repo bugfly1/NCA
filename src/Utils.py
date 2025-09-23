@@ -1,6 +1,4 @@
 import numpy as np
-import PIL
-import io
 import base64
 import tensorflow as tf
 import json
@@ -11,17 +9,25 @@ from google.protobuf.json_format import MessageToDict
 
 import os
 import cv2
-import random
 import imageio
+from src.CAModel import CAModel
+from src.SamplePooling import SamplePool
 
 from src.parameters import *
-
-
  
+ 
+def load_training(checkpoint=SAVE_POINT):
+    ca = CAModel()
+    ca.load_weights(f"train_log/{SAVE_POINT}/{SAVE_POINT}.weights.h5")
+    loss_log = load_loss_log(f"train_log/{SAVE_POINT}/{SAVE_POINT}_loss.npy")
+    x_pool = load_pool(f"train_log/{SAVE_POINT}/{SAVE_POINT}_pool.npy")
+    pool = SamplePool(x=x_pool)
+    return ca, loss_log, pool
+
 # Loading
 
 ## Especificamente hecho para mp4
-def load_user_video(path, max_size=TARGET_SIZE, padding = TARGET_PADDING):
+def load_user_video(path, max_size=TARGET_SIZE, padding=TARGET_PADDING):
   frames = []
   cap = cv2.VideoCapture(path)
   
@@ -132,37 +138,12 @@ def to_rgb(x):
   rgb, a = x[..., :3], to_alpha(x)
   return 1.0-a+rgb
 
-def get_living_mask(x):
-  alpha = x[:, :, :, 3:4]
-  # Cell is considered empty if there is no alpha > 0.1 cell in its
-  # 3x3 neightborhood  
-  return tf.nn.max_pool2d(alpha, 3, [1, 1, 1, 1], 'SAME') > 0.1
+
 
 def make_seed(size, n=1):
   x = np.zeros([n, size, size, CHANNEL_N], np.float32)
   x[:, size//2, size//2, 3:] = 1.0
   return x
-
-def np2pil(a):
-  if a.dtype in [np.float32, np.float64]:
-    a = np.uint8(np.clip(a, 0, 1)*255)
-  return PIL.Image.fromarray(a)
-
-def imencode(a, fmt='jpeg'):
-  a = np.asarray(a)
-  if len(a.shape) == 3 and a.shape[-1] == 4:
-    fmt = 'png'
-  f = io.BytesIO()
-  imwrite(f, a, fmt)
-  return f.getvalue()
-
-def im2url(a, fmt='jpeg'):
-  encoded = imencode(a, fmt)
-  base64_byte_string = base64.b64encode(encoded).decode('ascii')
-  return 'data:image/' + fmt.upper() + ';base64,' + base64_byte_string
-
-def imshow(a, fmt='jpeg'):
-  Image(data=imencode(a, fmt))
 
 def tile2d(a, w=None):
   a = np.asarray(a)
@@ -211,11 +192,40 @@ def visualize_batch(x0, x, step_i):
   #print('batch (before/after):')
   #imshow(vis)
 
+
+def visualize_target(target):
+  vis = np.hstack(to_rgb(target).numpy())
+  imwrite('train_log/target.jpg', vis)
+  #print('batch (before/after):')
+  #imshow(vis)
+
+def visualize_series(serie_CA, step_i):
+  vis = np.hstack(to_rgb(serie_CA).numpy())
+  imwrite('train_log/%04d/serie_%04d.jpg'%(step_i, step_i), vis)
+  cv2.destroyAllWindows()
+  #print('batch (before/after):')
+  #imshow(vis)
+  
+def visualize_step_seed(seed, step_i):
+  seed = to_rgb(seed[0]).numpy()
+  imwrite('train_log/%04d/seed_%04d.jpg'%(step_i, step_i), seed)
+  cv2.destroyAllWindows()
+  
+ 
+  
+  
+def save_rolls(serie_temporal):
+    n_frames = len(serie_temporal)
+    for k in range(n_frames):
+        visualize_series(tf.roll(serie_temporal, k, axis=0), k)
+        
+
 def plot_loss(loss_log, step_i):
   pl.figure(figsize=(10, 4))
   pl.title('Loss history (log10)')
   pl.plot(np.log10(loss_log), '.', alpha=0.1)
   pl.savefig('train_log/%04d/%04d_loss.jpg'%(step_i, step_i))
+  pl.close()
   #pl.show()
 
 def export_model(ca, step_i):

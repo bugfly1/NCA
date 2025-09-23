@@ -2,6 +2,6 @@ __pycache__
 .vscode/
 pyvenv.cfg
 .venv
-
+post--growing-ca/public/NCA_list.json
 share
 train_log

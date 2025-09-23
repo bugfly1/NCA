@@ -1,7 +1,7 @@
 from src.Utils import export_ca_to_webgl_demo
 from src.CAModel import CAModel
 
-path = "models/2000_rolling_loss/2000.weights.h5"
+path = "train_log/8000/8000.weights.h5"
 
 ca = CAModel()
 ca.load_weights(path)

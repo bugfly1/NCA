@@ -3,7 +3,14 @@ from keras.layers import Conv2D, MaxPooling2D
 import numpy as np
 
 from src.parameters import CHANNEL_N, CELL_FIRE_RATE
-from src.Utils import get_living_mask
+
+
+def get_living_mask(x):
+  alpha = x[:, :, :, 3:4]
+  # Cell is considered empty if there is no alpha > 0.1 cell in its
+  # 3x3 neightborhood  
+  return tf.nn.max_pool2d(alpha, 3, [1, 1, 1, 1], 'SAME') > 0.1
+
 
 class CAModel(tf.keras.Model):
 
