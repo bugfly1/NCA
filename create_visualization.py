@@ -5,11 +5,11 @@ from src.CAModel import CAModel
 from src.Utils import to_rgb
 
 ca = CAModel()
-ca.load_weights(f"train_log/8000/8000.weights.h5")
+ca.load_weights(f"train_log/5000/5000.weights.h5")
 
 output_file = "NCA.mp4"
 frame_width, frame_height = 1280,720
-fps = 10.0
+fps = 15.0
 
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')  
 out = cv2.VideoWriter(output_file, fourcc, fps, (frame_width, frame_height))

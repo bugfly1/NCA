@@ -66,6 +66,7 @@ else:
     begining = 0
 
 ### Loss Functions
+@tf.function
 def softmin(x):
     b = 100
     return -(1/b) * tf.math.log(tf.reduce_sum(tf.exp(-b*x)))
@@ -80,12 +81,15 @@ def pixelWiseHuberLoss(x, target):
     else:
         return tf.reduce_mean(delta * (tf.abs(to_rgba(x) - target) - (0.5 * delta)))
 
+@tf.function
 def pixelWiseMEA(x, target):
     return tf.reduce_mean(tf.abs(to_rgba(x)-target), [-2,-3,-1])
 
+@tf.function
 def pixelWiseMSE(x, target):
     return tf.reduce_mean(tf.square((to_rgba(x)-target)), [-2, -3, -1]) 
 
+@tf.function
 def loss_serie(serie_CA, serie_extendida):
     error = [tf.reduce_mean(pixelWiseMSE(serie_CA, tf.roll(serie_extendida, t, axis=0))) for t in range(n_frames)]
     tf.print("\nError por t:", error, "\n")
@@ -110,23 +114,19 @@ if SERIE:
     n_frames = len(serie_temporal_extendida)
     visualize_target(serie_temporal_extendida)
     
-
 def train_serie(x):
-    lista_serie = []
     with tf.GradientTape() as g:
+        lista_serie = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
         for j in tf.range(n_frames):
             for i in tf.range(ITER_FRAME):
                 x = ca(x)
-            lista_serie.append(x[0])
-
-        serie_CA = tf.convert_to_tensor(lista_serie)
+            lista_serie.write(j,x[0]).mark_used()
+        serie_CA = lista_serie.stack()
         loss = loss_serie(serie_CA, serie_temporal_extendida)
-    
     grads = g.gradient(loss, ca.weights)
     grads = [g/(tf.norm(g)+1e-8) for g in grads]
     trainer.apply_gradients(zip(grads, ca.weights))
     return x, loss, serie_CA
-
  
 
 ### Training function
@@ -173,14 +173,22 @@ for i in range(begining, 8000+1):
             damage = 1.0-make_circle_masks(DAMAGE_N, h, w).numpy()[..., None]
             x0[-DAMAGE_N:] *= damage
     
-    #elif SERIE:
-    #    if type(x) == int:
-    #        x0 = np.repeat(seed[None, ...], 1, 0)
-    #    else:
-    #        if np.random.randint(2) < 1:
-    #            x0 = x
-    #        else:
-    #            x0 = np.repeat(seed[None, ...], 1, 0)
+#    elif SERIE:
+#        if type(x) == int:
+#            x0 = np.repeat(seed[None, ...], 1, 0)
+#        else:
+#            if np.random.randint(2) < 1:
+#                # Seleccionamos un frame al azar
+#                # UNTESTED
+#                x0 = np.random.choice(pad_target)
+#            else:
+#                x0 = np.repeat(seed[None, ...], 1, 0)
+    elif SERIE:
+        # TODO: New seed
+        #seed[:,:,:3] = pad_target[0]
+        x0 = np.repeat(seed[None, ...], 1, 0)
+        
+        
     else:
         x0 = np.repeat(seed[None, ...], BATCH_SIZE, 0)
     

@@ -1,10 +1,11 @@
+Basicamente lo mismo que el primero periodico, pero con ITER_FRAME=8
 Perdida de MSE y softmin con b=100
 
 Video heavy_difference.mp4 con
 T=1, por lo menos en cuanto al codigo, notese que el video 
     son 2 imagenes cada una por 3 frames por lo que seria 
     mas razonable decir que T=3
-ITER_FRAME=16
+ITER_FRAME=8
 TARGET_PADDING = 4,
 TARGET_SIZE = 40
 CHANNEL_N = 16
