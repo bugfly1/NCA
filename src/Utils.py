@@ -20,10 +20,9 @@ def load_training(checkpoint=SAVE_POINT):
     ca = CAModel()
     ca.load_weights(f"train_log/{SAVE_POINT}/{SAVE_POINT}.weights.h5")
     loss_log = load_loss_log(f"train_log/{SAVE_POINT}/{SAVE_POINT}_loss.npy")
-    x_pool = load_pool(f"train_log/{SAVE_POINT}/{SAVE_POINT}_pool.npy")
-    pool = SamplePool(x=x_pool)
-    return ca, loss_log, pool
-
+    #x_pool = load_pool(f"train_log/{SAVE_POINT}/{SAVE_POINT}_pool.npy")
+    #pool = SamplePool(x=x_pool)
+    return ca, loss_log
 # Loading
 
 ## Especificamente hecho para mp4
@@ -48,8 +47,8 @@ def load_user_video(path, max_size=TARGET_SIZE, padding=TARGET_PADDING):
   video[:,:,:,3] = 255  # colocamos todo como alpha = 1 ya que mp4 no posee alpha channel
   
   p = padding
-  video = np.pad(video, [(0, 0), (p, p), (p, p), (0,0)])
   video = np.float32(video) / 255
+  video = tf.pad(video, [(0, 0), (p, p), (p, p), (0,0)])
   
   return video
 
@@ -198,8 +197,14 @@ def visualize_target(target):
   imwrite('train_log/target.jpg', vis)
 
 def visualize_series(serie_CA, step_i):
-  vis = np.hstack(to_rgb(serie_CA).numpy())
-  imwrite('train_log/%04d/serie_%04d.jpg'%(step_i, step_i), vis)
+    n_batches, n_frames, h, w, channels = serie_CA.shape
+    vis = np.zeros((n_batches, h, n_frames*w, 3))
+    for batch in range(n_batches):
+        line = np.hstack(to_rgb(serie_CA[batch]).numpy())
+        vis[batch] = line
+    vis = np.vstack(vis)
+
+    imwrite('train_log/%04d/serie_%04d.jpg'%(step_i, step_i), vis)
   
 def visualize_step_seed(seed, step_i):
   seed = to_rgb(seed[0]).numpy()

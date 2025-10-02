@@ -5,7 +5,11 @@ from src.CAModel import CAModel
 from src.Utils import to_rgb
 
 ca = CAModel()
-ca.load_weights(f"train_log/5000/5000.weights.h5")
+ca.load_weights(f"train_log/10000/10000.weights.h5")
+grid_h, grid_w = 2*TARGET_PADDING + TARGET_SIZE, 2*TARGET_PADDING + TARGET_SIZE
+seed = np.zeros([grid_h, grid_w, CHANNEL_N], dtype=np.float32)
+seed[grid_h//2, grid_w//2, 3:] = 1.0
+x = np.repeat(seed[None, ...], 1, 0)
 
 output_file = "NCA.mp4"
 frame_width, frame_height = 1280,720
@@ -13,12 +17,6 @@ fps = 15.0
 
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')  
 out = cv2.VideoWriter(output_file, fourcc, fps, (frame_width, frame_height))
-grid_h, grid_w = 2*TARGET_PADDING + TARGET_SIZE, 2*TARGET_PADDING + TARGET_SIZE
-
-seed = np.zeros([grid_h, grid_w, CHANNEL_N], dtype=np.float32)
-seed[grid_h//2, grid_w//2, 3:] = 1.0
-
-x = np.repeat(seed[None, ...], 1, 0)
 
 def pad_until_video_resolution(grid):
     h, w, _ = grid.shape    
@@ -27,6 +25,12 @@ def pad_until_video_resolution(grid):
                          (0,0)]
                   )
     return grid
+
+"""
+for i in range(50000):
+    x = ca(x)
+    print(i)
+"""
 
 for i in range(500):
     x = ca(x)

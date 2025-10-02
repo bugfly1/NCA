@@ -1,0 +1,13 @@
+CHANNEL_N = 16       
+TARGET_PADDING = 4
+TARGET_SIZE = 40
+
+b=200
+TAU = 3
+T = 8
+
+BATCH_SIZE = 8
+POOL_SIZE = 1024
+
+
+SamplePool solo guarda la grilla que resulta del step

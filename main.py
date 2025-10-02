@@ -7,6 +7,7 @@ from src.Utils import (load_target, imwrite, to_rgba, make_circle_masks, save_lo
 from src.CAModel import CAModel
 from src.SamplePooling import SamplePool
 from src.parameters import *
+from math import isnan, isinf
 
 os.environ['FFMPEG_BINARY'] = 'ffmpeg'
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -28,10 +29,13 @@ loss_log = np.array([])
 os.system('clear')
 
 # TODO:
-# - Experimento: RNN
-# - ¿Y si agregamos la semilla como frame 1?
+# - Probar distinta arquitectura de modelo
 # - Probar entregar parametros constantes como input
-# - Probar softmin con y sin perdida en log 10
+# - Probar softmin con perdida en log 10
+# - Probar el agregar una medicion de diferencia entre elementos de la sequencia en la funcion de perdida
+# - En perdida, comparar por rgb en vez de rgba. El que haya estado asi todo este rato significa que 
+#   le estabamos pidiendo que todas las celulas estuvieran vivas (puse que todo el alpha fuera 1), talvez eso causa el
+#   crecimiento descontrolado al principio
 
 # ============== Initialize Trainig ==================
 
@@ -61,14 +65,13 @@ if ROLL:
 ### Load Checkpoint
 if START_TRAINING_FROM_SAVE_POINT:
     begining = SAVE_POINT
-    ca, loss_log, pool = load_training()
+    ca, loss_log = load_training()
 else:
     begining = 0
 
 ### Loss Functions
 @tf.function
 def softmin(x):
-    b = 100
     return -(1/b) * tf.math.log(tf.reduce_sum(tf.exp(-b*x)))
 
 def LogSumExp(x):
@@ -91,11 +94,24 @@ def pixelWiseMSE(x, target):
 
 @tf.function
 def loss_serie(serie_CA, serie_extendida):
-    error = [tf.reduce_mean(pixelWiseMSE(serie_CA, tf.roll(serie_extendida, t, axis=0))) for t in range(n_frames)]
-    tf.print("\nError por t:", error, "\n")
+    error = [tf.reduce_mean(pixelWiseMSE(serie_CA, tf.roll(serie_extendida, tbar, axis=0)), axis=[-1,-2]) for tbar in tf.range(n_frames)]
+    #tf.print("\n\nError por t:", error)
     MSE = tf.convert_to_tensor(error, dtype=tf.float32)
     return softmin(MSE)
-    
+
+# Version que funciona :)
+def loss_serie_2(serie_CA, serie_extendida):
+    lista_serie = tf.TensorArray(dtype=tf.float32, size=BATCH_SIZE)
+    for i in tf.range(BATCH_SIZE):
+        batch = serie_CA[i]
+        error = [tf.reduce_mean(pixelWiseMSE(batch, tf.roll(serie_extendida, tbar, axis=0)), axis=-1) for tbar in tf.range(n_frames)]
+        error = tf.convert_to_tensor(error, dtype=tf.float32)
+        batch_loss = softmin(error)
+        lista_serie.write(i,batch_loss).mark_used()
+        
+    lista_tensor = lista_serie.stack()    
+    loss = tf.reduce_mean(lista_tensor)
+    return loss
     
 @tf.function    
 def loss_f(x):
@@ -108,21 +124,24 @@ def loss_f(x):
 
 
 if SERIE:
-    serie_temporal_extendida = np.repeat(pad_target, T, axis=0)
+    serie_temporal_extendida = np.repeat(pad_target, TAU, axis=0)
     # Duplica el video
-    serie_temporal_extendida = np.append(serie_temporal_extendida, serie_temporal_extendida, axis=0)
+    #serie_temporal_extendida = np.append(serie_temporal_extendida, serie_temporal_extendida, axis=0)
     n_frames = len(serie_temporal_extendida)
     visualize_target(serie_temporal_extendida)
     
 def train_serie(x):
     with tf.GradientTape() as g:
-        lista_serie = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
+        lista_serie = tf.TensorArray(dtype=tf.float32, size=n_frames)
         for j in tf.range(n_frames):
-            for i in tf.range(ITER_FRAME):
+            for i in tf.range(T):
                 x = ca(x)
-            lista_serie.write(j,x[0]).mark_used()
+            lista_serie.write(j,x).mark_used()
         serie_CA = lista_serie.stack()
-        loss = loss_serie(serie_CA, serie_temporal_extendida)
+        # Changes shape from (n_frames, n_batch, h, w, channels) to
+        # (n_batch, n_frames, h, w, channels)
+        serie_CA = tf.transpose(serie_CA, perm=[1,0,2,3,4])
+        loss = loss_serie_2(serie_CA, serie_temporal_extendida)
     grads = g.gradient(loss, ca.weights)
     grads = [g/(tf.norm(g)+1e-8) for g in grads]
     trainer.apply_gradients(zip(grads, ca.weights))
@@ -150,14 +169,14 @@ def train_step(x):
 
 x = 0
 # ========================= Training Loop =====================
-for i in range(begining, 8000+1):
+for i in range(begining, 10000+1):
   ### Generate input grids for CA
-  
+
     if ROLL and USE_PATTERN_POOL:
         batch = pool.sample(n_frames)
         x0 = batch.x
-        
-    elif USE_PATTERN_POOL:
+    
+    elif not VIDEO and USE_PATTERN_POOL:
         # Sample a batch from pool
         batch = pool.sample(BATCH_SIZE)
         x0 = batch.x
@@ -173,22 +192,15 @@ for i in range(begining, 8000+1):
             damage = 1.0-make_circle_masks(DAMAGE_N, h, w).numpy()[..., None]
             x0[-DAMAGE_N:] *= damage
     
-#    elif SERIE:
-#        if type(x) == int:
-#            x0 = np.repeat(seed[None, ...], 1, 0)
-#        else:
-#            if np.random.randint(2) < 1:
-#                # Seleccionamos un frame al azar
-#                # UNTESTED
-#                x0 = np.random.choice(pad_target)
-#            else:
-#                x0 = np.repeat(seed[None, ...], 1, 0)
-    elif SERIE:
-        # TODO: New seed
-        #seed[:,:,:3] = pad_target[0]
-        x0 = np.repeat(seed[None, ...], 1, 0)
+    elif SERIE and USE_PATTERN_POOL:
+        batch = pool.sample(BATCH_SIZE)
+        x0 = batch.x
+        x0[:1] = seed
         
-        
+        if DAMAGE_N:
+            damage = 1.0-make_circle_masks(DAMAGE_N, h, w).numpy()[..., None]
+            x0[-DAMAGE_N:] *= damage
+       
     else:
         x0 = np.repeat(seed[None, ...], BATCH_SIZE, 0)
     
@@ -203,32 +215,37 @@ for i in range(begining, 8000+1):
         batch.x[:] = x
         batch.commit()
 
+    if isinf(loss) or isnan(loss):
+        print("Exploto la perdida", "b:", b)
+        exit(1)
+    
     step_i = i
     loss_log = np.append(loss_log, loss.numpy())
 
     ### Save Training Data
-    if step_i%100 == 0:
+    if step_i%20 == 0:
         if not os.path.isdir(f"train_log/{step_i:04d}"):
             os.mkdir(f"train_log/{step_i:04d}")
         
-        
         plot_loss(loss_log, step_i)
         export_model(ca, step_i)
+        save_loss(loss_log, step_i)
+        
         if SERIE:
             visualize_series(serie_CA, step_i)
-            visualize_step_seed(x0, step_i)
+            #visualize_step_seed(x0, step_i)
         else:
-            generate_pool_figures(pool, step_i)
             visualize_batch(x0, x, step_i)
-            
         
-        #save_loss(loss_log, step_i)
+        if USE_PATTERN_POOL:
+            generate_pool_figures(pool, step_i)
+        
         # Un pool de 1024 son 300-500 MB
         #save_pool(pool, step_i)
 
     #print('\r step: %d, log10(loss): %.3f'%(i, np.log10(loss)), end='')
     print('\r step: %d, loss: %f'%(i, loss), end='')
-    
+
 
 #  ======================= Export =======================
 with open("ex_user.json", "w") as f:
