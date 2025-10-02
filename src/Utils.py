@@ -268,6 +268,30 @@ def load_loss_log(file):
     a = np.load(file)
   return a
 
+def save_params():
+    path = f"train_log/description.txt"
+    lines = [
+        f"SRC_TARGET={SRC_TARGET.split("/")[-1]}",
+        "",
+        f"CHANNEL_N={CHANNEL_N}",
+        f"TARGET_PADDING={TARGET_PADDING}",
+        f"TARGET_SIZE={TARGET_SIZE}",
+        "",
+        f"b={b}",
+        f"TAU={TAU}",
+        f"T={TAU}",
+        "",
+        f"BATCH_SIZE={BATCH_SIZE}",
+        f"POOL_SIZE={POOL_SIZE}",
+        "",
+        f"USE_PATTERN_POOL={bool(USE_PATTERN_POOL)}",
+        f"DAMAGE_N={DAMAGE_N}"
+    ]
+    
+    lines_string = "\n".join(lines)
+    
+    with open(path, 'w') as f:
+        f.write(lines_string)
 
 ### ============ Export to WebGL ============
 def pack_layer(weight, bias, outputType=np.uint8):

@@ -3,7 +3,7 @@ import numpy as np
 import tensorflow as tf
 from src.Utils import (load_target, imwrite, to_rgba, make_circle_masks, save_loss, load_training,
                       export_model, visualize_batch, visualize_target, visualize_series, visualize_step_seed, plot_loss, 
-                      generate_pool_figures, to_rgb, save_rolls, export_ca_to_webgl_demo)
+                      generate_pool_figures, to_rgb, save_rolls, export_ca_to_webgl_demo, save_params)
 from src.CAModel import CAModel
 from src.SamplePooling import SamplePool
 from src.parameters import *
@@ -166,6 +166,7 @@ def train_step(x):
     trainer.apply_gradients(zip(grads, ca.weights))
     return x, loss
 
+save_params()
 
 x = 0
 # ========================= Training Loop =====================
@@ -223,7 +224,7 @@ for i in range(begining, 10000+1):
     loss_log = np.append(loss_log, loss.numpy())
 
     ### Save Training Data
-    if step_i%20 == 0:
+    if step_i%200 == 0:
         if not os.path.isdir(f"train_log/{step_i:04d}"):
             os.mkdir(f"train_log/{step_i:04d}")
         
