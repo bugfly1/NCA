@@ -1,9 +1,12 @@
+import tensorflow as tf
+import numpy as np
+
 # ==================== Parametros ================================
 
-CHANNEL_N = 8        # Number of CA state channels
-TARGET_PADDING = 16    # Number of pixels used to pad the target image border
-TARGET_SIZE = 20
-BATCH_SIZE = 8
+CHANNEL_N = 16        # Number of CA state channels
+TARGET_PADDING = 4    # Number of pixels used to pad the target image border
+TARGET_SIZE = 40
+BATCH_SIZE = 4
 POOL_SIZE = 1024
 CELL_FIRE_RATE = 0.5
 
@@ -11,15 +14,29 @@ CELL_FIRE_RATE = 0.5
 TAU = 3
 
 # Numero de iteraciones por frame o "calibracion de relojes internos"
-T = 4
+T = 16
 
 # Beta, softmin
-b = 100
+# b=87.0 no hace explotar nada con presicion tf.float32
+# b=744.0 no hace explotar nada con presicion tf.float64
+b = 200
 
+# Precision de valores, float32 es mas rapido pero con float64 se pueden usar mayores valores de b,
+# lo que de da prioridad a una sola sequencia ya que cuando b -> inf softmin(a) -> min a_i
+PRECISION=tf.float32
+
+# Delta, Huber Loss
+delta = 0.75
+
+SRC_TARGET = "data/Videos/heavy_diff_n=3.mp4"
+
+
+if PRECISION == tf.float64:
+    NP_PRECISION = np.float64
+else:
+    NP_PRECISION = np.float32
 
 N_ITER_CA = [64, 96]     # [64, 96] por defecto
-
-SRC_TARGET = "data/Videos/heavy_diff_T=1.mp4"
 
 START_TRAINING_FROM_SAVE_POINT = False
 SAVE_POINT = 15000 # step

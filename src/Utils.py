@@ -40,14 +40,19 @@ def load_user_video(path, max_size=TARGET_SIZE, padding=TARGET_PADDING):
     if ret:
       img = cv2.resize(img, dims, interpolation=cv2.INTER_AREA)
       frames.append(img)
-    video = np.stack(frames, axis=0)
+    video = np.stack(frames, axis=0, dtype=NP_PRECISION)
 
   # Agregamos el canal Alpha
   video = np.pad(video, [(0, 0), (0, 0), (0, 0), (0,1)])
   video[:,:,:,3] = 255  # colocamos todo como alpha = 1 ya que mp4 no posee alpha channel
   
   p = padding
-  video = np.float32(video) / 255
+  if PRECISION == tf.float64:
+    video = np.float64(video) / 255
+  else:
+    video = np.float32(video) / 255
+
+      
   video = tf.pad(video, [(0, 0), (p, p), (p, p), (0,0)])
   
   return video
@@ -137,13 +142,6 @@ def to_rgb(x):
   rgb, a = x[..., :3], to_alpha(x)
   return 1.0-a+rgb
 
-
-
-def make_seed(size, n=1):
-  x = np.zeros([n, size, size, CHANNEL_N], np.float32)
-  x[:, size//2, size//2, 3:] = 1.0
-  return x
-
 def tile2d(a, w=None):
   a = np.asarray(a)
   if w is None:
@@ -230,9 +228,9 @@ def plot_loss(loss_log, step_i):
 def export_model(ca, step_i):
   base_fn = f'train_log/{step_i:04d}/{step_i:04d}.weights.h5'
   ca.save_weights(base_fn)
-
+  
   cf = ca.call.get_concrete_function(
-      x=tf.TensorSpec([None, None, None, CHANNEL_N]),
+      x=tf.TensorSpec([None, None, None, CHANNEL_N], dtype=PRECISION),
       fire_rate=tf.constant(0.5),
       angle=tf.constant(0.0),
       step_size=tf.constant(1.0))
@@ -245,6 +243,8 @@ def export_model(ca, step_i):
       'modelTopology': graph_json,
       'weightsManifest': [],
   }
+  
+  print("explote")
   with open(base_fn+'.json', 'w') as f:
     json.dump(model_json, f)
 
@@ -270,6 +270,11 @@ def load_loss_log(file):
 
 def save_params():
     path = f"train_log/description.txt"
+    if PRECISION == tf.float64:
+        string_precision = "tf.float64"
+    else:
+        string_precision = "tf.float32"
+        
     lines = [
         f"SRC_TARGET={SRC_TARGET.split("/")[-1]}",
         "",
@@ -285,7 +290,9 @@ def save_params():
         f"POOL_SIZE={POOL_SIZE}",
         "",
         f"USE_PATTERN_POOL={bool(USE_PATTERN_POOL)}",
-        f"DAMAGE_N={DAMAGE_N}"
+        f"DAMAGE_N={DAMAGE_N}",
+        "",
+        f"PRECISION={string_precision}"
     ]
     
     lines_string = "\n".join(lines)
