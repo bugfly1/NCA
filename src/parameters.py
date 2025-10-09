@@ -11,7 +11,7 @@ POOL_SIZE = 1024
 CELL_FIRE_RATE = 0.5
 
 # Extension de serie temporal
-TAU = 3
+TAU = 1
 
 # Numero de iteraciones por frame o "calibracion de relojes internos"
 T = 16
@@ -28,7 +28,7 @@ PRECISION=tf.float32
 # Delta, Huber Loss
 delta = 0.75
 
-SRC_TARGET = "data/Videos/heavy_diff_n=3.mp4"
+SRC_TARGET = "data/Videos/heavy_diff.mp4"
 
 
 if PRECISION == tf.float64:

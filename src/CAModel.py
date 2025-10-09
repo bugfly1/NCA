@@ -20,7 +20,6 @@ class CAModel(tf.keras.Model):
     self.fire_rate = fire_rate
 
     self.dmodel = tf.keras.Sequential([
-            Conv2D(256, 1, activation=tf.nn.relu),
             Conv2D(128, 1, activation=tf.nn.relu),
             Conv2D(self.channel_n, 1, activation=None,
                 kernel_initializer=tf.zeros_initializer),
