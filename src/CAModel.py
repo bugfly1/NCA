@@ -13,7 +13,6 @@ def get_living_mask(x):
 
 
 class CAModel(tf.keras.Model):
-
   def __init__(self, channel_n=CHANNEL_N, fire_rate=CELL_FIRE_RATE):
     super().__init__(dtype=PRECISION)
     self.channel_n = channel_n
@@ -36,8 +35,8 @@ class CAModel(tf.keras.Model):
     """
     return string
   
-  # Si se pueden agregar canales "constantes", solo hay que colocarlos al final del
-  # Perception vector, ya que el output de la CNN solamente entrega 16 canales en el output
+  # Si se pueden agregar canales "constantes", solo hay que 
+  # colocarlos al final del Perception vector
   # "A Neurall Cellular Automaton Model for Memory Transfer"
   # https://www.youtube.com/watch?v=iyc0943z464
   
@@ -45,9 +44,12 @@ class CAModel(tf.keras.Model):
   def perceive(self, x, angle=0.0):
     
     if PRECISION == tf.float64:
-        identify = np.float64([[0, 0, 0],
-                            [0, 1, 0],
-                            [0, 0, 0]])
+        identify = np.float64([ [0, 0, 0],
+                                [0, 1, 0],
+                                [0, 0, 0]])
+        laplacian = np.float64([   [1, 0, 1],  # No entiendo porque se divide por 4 pero aqui lo hacen https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1011589
+                                   [2,-12,2],
+                                   [1, 2, 1]])/ 4.0
         # Sobel_x
         dx = np.float64([[-1, 0, 1],
                         [-2, 0, 2],
@@ -56,6 +58,9 @@ class CAModel(tf.keras.Model):
         identify = np.float32([[0, 0, 0],
                             [0, 1, 0],
                             [0, 0, 0]])
+        laplacian = np.float32([   [1, 2, 1],
+                                   [2,-12,2],
+                                   [1, 2, 1]]) / 4.0
         # Sobel_x
         dx = np.float32([[-1, 0, 1],
                         [-2, 0, 2],
@@ -66,7 +71,7 @@ class CAModel(tf.keras.Model):
     c, s = tf.cast(c, PRECISION), tf.cast(s, PRECISION)
     
     # By convolution we stack each cell state, its partial derivatives in x and y
-    kernel = tf.stack([identify, c*dx-s*dy, s*dx+c*dy], -1)[:, :, None, :]
+    kernel = tf.stack([identify, c*dx-s*dy, s*dx+c*dy, laplacian], -1)[:, :, None, :]
     
     kernel = tf.repeat(kernel, self.channel_n, 2)
     

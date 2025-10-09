@@ -4,9 +4,9 @@ import numpy as np
 # ==================== Parametros ================================
 
 CHANNEL_N = 16        # Number of CA state channels
-TARGET_PADDING = 4    # Number of pixels used to pad the target image border
+TARGET_PADDING = 0    # Number of pixels used to pad the target image border
 TARGET_SIZE = 40
-BATCH_SIZE = 4
+BATCH_SIZE = 8
 POOL_SIZE = 1024
 CELL_FIRE_RATE = 0.5
 

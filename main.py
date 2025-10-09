@@ -35,14 +35,17 @@ loss_log = np.array([])
 os.system('clear')
 
 # TODO:
-# - Probar distinta arquitectura de modelo
 # - Probar entregar parametros constantes como input
-# - Probar softmin con perdida en log 10
 # - Probar el agregar una medicion de diferencia entre elementos de la sequencia en la funcion de perdida
 # - En perdida, comparar por rgb en vez de rgba. El que haya estado asi todo este rato significa que 
 #       le estabamos pidiendo que todas las celulas estuvieran vivas (puse que todo el alpha fuera 1), talvez eso causa el
 #       crecimiento descontrolado al principio
 # - Probar MSE pero elevado a 4, a ver si me deja usar mayores valores de b
+# - Agregar el uso de matriz Laplaciana en percieve para mejorar resolucion https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1011589 p.16
+# - Usar como seed el ultimo frame y empezar desde ahi
+# - Agregar lo que sea que hicieron aqui cuando lo liberen https://cells2pixels.github.io/
+# - Probar traslacion desde la dimension de frecuencia (DFT de las imagenes de input) https://tuprints.ulb.tu-darmstadt.de/29695/1/DemocratizingLearning_JohnKalkhof.pdf#page=14.62
+#                                                                                       (Instant Global Communication through the Fourier Space)
 
 # ============== Initialize Trainig ==================
 
