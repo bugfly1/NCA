@@ -1,0 +1,25 @@
+SRC_TARGET=heavy_diff_n=3.mp4
+
+CHANNEL_N=16
+TARGET_PADDING=4
+TARGET_SIZE=40
+
+b=200
+TAU=3
+T=16
+
+BATCH_SIZE=4
+POOL_SIZE=1024
+
+USE_PATTERN_POOL=True
+DAMAGE_N=0
+
+PRECISION=tf.float32
+
+Aumentada la cantidad de parametros del modelo
+self.dmodel = tf.keras.Sequential([
+            Conv2D(256, 1, activation=tf.nn.relu),
+            Conv2D(128, 1, activation=tf.nn.relu),
+            Conv2D(self.channel_n, 1, activation=None,
+                kernel_initializer=tf.zeros_initializer),
+])

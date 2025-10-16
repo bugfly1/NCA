@@ -47,8 +47,8 @@ class CAModel(tf.keras.Model):
         identify = np.float64([ [0, 0, 0],
                                 [0, 1, 0],
                                 [0, 0, 0]])
-        laplacian = np.float64([   [1, 0, 1],  # No entiendo porque se divide por 4 pero aqui lo hacen https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1011589
-                                   [2,-12,2],
+        laplacian = np.float64([   [1, 0, 1],   # No entiendo porque se divide por 4 pero aqui lo hacen 
+                                   [2,-12,2],   # https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1011589 p.16
                                    [1, 2, 1]])/ 4.0
         # Sobel_x
         dx = np.float64([[-1, 0, 1],
@@ -71,7 +71,7 @@ class CAModel(tf.keras.Model):
     c, s = tf.cast(c, PRECISION), tf.cast(s, PRECISION)
     
     # By convolution we stack each cell state, its partial derivatives in x and y
-    kernel = tf.stack([identify, c*dx-s*dy, s*dx+c*dy, laplacian], -1)[:, :, None, :]
+    kernel = tf.stack([identify, c*dx-s*dy, s*dx+c*dy], -1)[:, :, None, :]
     
     kernel = tf.repeat(kernel, self.channel_n, 2)
     

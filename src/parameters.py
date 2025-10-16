@@ -4,14 +4,14 @@ import numpy as np
 # ==================== Parametros ================================
 
 CHANNEL_N = 16        # Number of CA state channels
-TARGET_PADDING = 0    # Number of pixels used to pad the target image border
+TARGET_PADDING = 4    # Number of pixels used to pad the target image border
 TARGET_SIZE = 40
 BATCH_SIZE = 8
 POOL_SIZE = 1024
 CELL_FIRE_RATE = 0.5
 
 # Extension de serie temporal
-TAU = 1
+TAU = 3
 
 # Numero de iteraciones por frame o "calibracion de relojes internos"
 T = 16
@@ -19,16 +19,16 @@ T = 16
 # Beta, softmin
 # b=87.0 no hace explotar nada con presicion tf.float32
 # b=744.0 no hace explotar nada con presicion tf.float64
-b = 200
+b = 100.0
 
 # Precision de valores, float32 es mas rapido pero con float64 se pueden usar mayores valores de b,
-# lo que de da prioridad a una sola sequencia ya que cuando b -> inf softmin(a) -> min a_i
+# lo que de da prioridad a una sola sequencia gracias a softmin
 PRECISION=tf.float32
 
 # Delta, Huber Loss
 delta = 0.75
 
-SRC_TARGET = "data/Videos/heavy_diff.mp4"
+SRC_TARGET = "data/Videos/heavy_diff_n=3.mp4"
 
 
 if PRECISION == tf.float64:

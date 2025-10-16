@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 from src.Utils import to_rgba
-from src.parameters import PRECISION, delta, BATCH_SIZE, b, ROLL
+from src.parameters import PRECISION, delta, BATCH_SIZE, b, ROLL, TAU
 
 ## Mediciones de error
 @tf.function
@@ -31,26 +31,27 @@ def loss_serie(serie_CA, serie_extendida):
     n_frames = serie_CA.shape[-4]
     lista_serie = tf.TensorArray(dtype=tf.float32, size=BATCH_SIZE)
     for i in tf.range(BATCH_SIZE):
-        batch = serie_CA[i]        
+        batch = serie_CA[i]
+        #print(serie_CA[0][0])
         error = [tf.reduce_mean(pixelWiseMSE(batch, tf.roll(serie_extendida, tbar, axis=0)), axis=[-1]) for tbar in tf.range(n_frames)]
         
-        #tf.print("\n\nError por t:", error)
+        tf.print("\n\nError por t:", error)
         
         error = tf.convert_to_tensor(error, dtype=tf.float32)
         batch_MSE = softmin(error)
-        #tf.print('softmin:', batch_MSE)
+        tf.print('softmin:', batch_MSE)
         lista_serie.write(i,batch_MSE).mark_used()
     
     lista_tensor = lista_serie.stack()
-    #tf.print(lista_tensor)
+    tf.print(lista_tensor)
 
     loss = tf.reduce_mean(lista_tensor)
-    #tf.print(loss)
+    tf.print(loss)
     return loss
 
 @tf.function
 def loss_serie_tf(serie_CA, serie_extendida, n_frames=1):
-    MSE = tf.map_fn(lambda tbar: tf.reduce_mean(pixelWiseMSE(serie_CA, tf.roll(serie_extendida, tbar, axis=0)), axis=[-1]), tf.range(n_frames), fn_output_signature=PRECISION)
+    MSE = tf.map_fn(lambda tbar: tf.reduce_mean(pixelWiseMSE(serie_CA, tf.roll(serie_extendida, tbar, axis=0)[:2*TAU]), axis=[-1]), tf.range(n_frames), fn_output_signature=PRECISION)
     return softmin(MSE)
 
 @tf.function

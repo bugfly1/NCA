@@ -284,7 +284,7 @@ def save_params():
         "",
         f"b={b}",
         f"TAU={TAU}",
-        f"T={TAU}",
+        f"T={T}",
         "",
         f"BATCH_SIZE={BATCH_SIZE}",
         f"POOL_SIZE={POOL_SIZE}",

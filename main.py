@@ -7,7 +7,7 @@ from src.Utils import (load_target, imwrite, to_rgba, make_circle_masks, save_lo
 from src.CAModel import CAModel
 from src.SamplePooling import SamplePool
 from src.parameters import *
-from src.loss import loss_batch_tf, loss_f
+from src.loss import loss_batch_tf, loss_serie, loss_f
 from math import isnan, isinf
 import time
 
@@ -40,13 +40,12 @@ os.system('clear')
 # - En perdida, comparar por rgb en vez de rgba. El que haya estado asi todo este rato significa que 
 #       le estabamos pidiendo que todas las celulas estuvieran vivas (puse que todo el alpha fuera 1), talvez eso causa el
 #       crecimiento descontrolado al principio
-# - Probar MSE pero elevado a 4, a ver si me deja usar mayores valores de b
-# - Agregar el uso de matriz Laplaciana en percieve para mejorar resolucion https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1011589 p.16
 # - Usar como seed el ultimo frame y empezar desde ahi
 # - Agregar lo que sea que hicieron aqui cuando lo liberen https://cells2pixels.github.io/
 # - Probar traslacion desde la dimension de frecuencia (DFT de las imagenes de input) https://tuprints.ulb.tu-darmstadt.de/29695/1/DemocratizingLearning_JohnKalkhof.pdf#page=14.62
 #                                                                                       (Instant Global Communication through the Fourier Space)
-
+# - El agregar el laplaciano rompe el codigo de export_ca_webgl_demo
+# - Probar la norma euclidiana como funcion de perdida
 # ============== Initialize Trainig ==================
 
 # Input loading
@@ -64,6 +63,7 @@ h, w, _ = pad_target.shape[-3:]
 seed = np.zeros([h, w, CHANNEL_N], dtype=NP_PRECISION)
 # Set center cell alive for seed
 seed[h//2, w//2, 3:] = 1.0
+#seed[:,:,:4] = pad_target[-1]
 pool = SamplePool(x=np.repeat(seed[None, ...], POOL_SIZE, 0))
 
 save_params()
@@ -83,9 +83,8 @@ if START_TRAINING_FROM_SAVE_POINT:
 else:
     begining = 0
 
-
 def train_serie(x):
-    n_frames_local = n_frames
+    n_frames_local = min(n_frames, 2*TAU)
     iter_n = T
     with tf.GradientTape() as g:
         lista_serie = tf.TensorArray(dtype=PRECISION, size=n_frames_local)
@@ -93,14 +92,12 @@ def train_serie(x):
             for i in tf.range(iter_n):
                 x = ca(x)
             lista_serie.write(j,x).mark_used()
-        
         serie_CA = lista_serie.stack()
         # Changes shape from (n_frames, n_batch, h, w, channels) to
         # (n_batch, n_frames, h, w, channels)
         serie_CA = tf.transpose(serie_CA, perm=[1,0,2,3,4])
-        #loss = loss_serie_2(serie_CA, serie_temporal_extendida)
+        
         loss = loss_batch_tf(serie_CA, serie_temporal_extendida)
-    #tf.print(" diffs loss:",less - loss)
 
     grads = g.gradient(loss, ca.weights)
     grads = [g/(tf.norm(g)+1e-8) for g in grads]
@@ -214,5 +211,5 @@ for i in range(begining, 10000+1):
 
 
 #  ======================= Export =======================
-with open("ex_user.json", "w") as f:
-    f.write(export_ca_to_webgl_demo(ca))
+#with open("ex_user.json", "w") as f:
+#    f.write(export_ca_to_webgl_demo(ca))

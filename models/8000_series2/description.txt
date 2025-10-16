@@ -1,1 +1,0 @@
-Perdida de MSE con reduccion por /(h*w) y LSE

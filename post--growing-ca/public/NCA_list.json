@@ -1,18 +1,18 @@
 [
+    "planarian",
     "Padding=16",
+    "🦋",
     "series2",
     "multipleCheckpoints",
-    "MEA",
-    "🦋",
-    "seriesSamplePool",
+    "ser2",
     "control",
     "🦎",
-    "series",
-    "r",
-    "💻",
-    "firstPeriodic",
-    "planarian",
     "periodicIter8",
-    "ser2",
-    "series1"
+    "series1",
+    "💻",
+    "r",
+    "series",
+    "MEA",
+    "firstPeriodic",
+    "seriesSamplePool"
 ]
