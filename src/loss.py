@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 from src.Utils import to_rgba
-from src.parameters import PRECISION, delta, BATCH_SIZE, b, ROLL, TAU
+from src.parameters import PRECISION, delta, BATCH_SIZE, b, ROLL, TAU, SERIE_CORTA
 
 ## Mediciones de error
 @tf.function
@@ -51,7 +51,10 @@ def loss_serie(serie_CA, serie_extendida):
 
 @tf.function
 def loss_serie_tf(serie_CA, serie_extendida, n_frames=1):
-    MSE = tf.map_fn(lambda tbar: tf.reduce_mean(pixelWiseMSE(serie_CA, tf.roll(serie_extendida, tbar, axis=0)[:2*TAU]), axis=[-1]), tf.range(n_frames), fn_output_signature=PRECISION)
+    if SERIE_CORTA:
+        MSE = tf.map_fn(lambda tbar: tf.reduce_mean(pixelWiseMSE(serie_CA, tf.roll(serie_extendida, tbar, axis=0)[:2*TAU]), axis=[-1]), tf.range(n_frames), fn_output_signature=PRECISION)
+    else:
+        MSE = tf.map_fn(lambda tbar: tf.reduce_mean(pixelWiseMSE(serie_CA, tf.roll(serie_extendida, tbar, axis=0)[:2*TAU]), axis=[-1]), tf.range(n_frames), fn_output_signature=PRECISION)
     return softmin(MSE)
 
 @tf.function

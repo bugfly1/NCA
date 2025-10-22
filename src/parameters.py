@@ -49,10 +49,11 @@ EXPERIMENT_TYPE = "Serie" #@param ["Growing", "Persistent", "Regenerating", "Rol
 #       frames del video y se comparan con el frame siguiente en loss_f()
 # Serie: ejecutamos varias iteraciones de
 
-EXPERIMENT_MAP = {"Growing":0, "Persistent":1, "Regenerating":2, "Roll": 3, "Serie": 4}
+EXPERIMENT_MAP = {"Growing":0, "Persistent":1, "Regenerating":2, "Roll": 3, "Serie": 4, "SerieCorta": 5}
 EXPERIMENT_N = EXPERIMENT_MAP[EXPERIMENT_TYPE]
-USE_PATTERN_POOL = [0, 1, 1, 1, 1][EXPERIMENT_N]
-DAMAGE_N = [0, 0, 3, 3, 0][EXPERIMENT_N]  # Number of patterns to damage in a batch
-VIDEO = [0, 0, 0, 1, 1][EXPERIMENT_N]
-ROLL =  [0, 0, 0, 1, 0][EXPERIMENT_N]
-SERIE = [0, 0, 0, 0, 1][EXPERIMENT_N]
+USE_PATTERN_POOL = [0, 1, 1, 1, 1, 0][EXPERIMENT_N]
+DAMAGE_N = [0, 0, 3, 3, 0, 0][EXPERIMENT_N]  # Number of patterns to damage in a batch
+VIDEO = [0, 0, 0, 1, 1, 0][EXPERIMENT_N]
+ROLL =  [0, 0, 0, 1, 0, 0][EXPERIMENT_N]
+SERIE = [0, 0, 0, 0, 1, 0][EXPERIMENT_N]
+SERIE_CORTA = [0, 0, 0, 0, 0, 1][EXPERIMENT_N]

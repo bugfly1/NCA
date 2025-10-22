@@ -1,1 +1,0 @@
-Perdida de MEA y softmin con b=1
