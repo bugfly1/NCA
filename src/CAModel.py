@@ -2,7 +2,7 @@ import tensorflow as tf
 from keras.layers import Conv2D, MaxPooling2D
 import numpy as np
 
-from src.parameters import CHANNEL_N, CELL_FIRE_RATE, PRECISION
+from src.parameters import CHANNEL_N, CELL_FIRE_RATE, PRECISION, ALPHA
 
 
 def get_living_mask(x):
@@ -80,7 +80,8 @@ class CAModel(tf.keras.Model):
 
   @tf.function
   def call(self, x, fire_rate=None, angle=0.0, step_size=1.0):
-    pre_life_mask = get_living_mask(x)
+    if ALPHA:
+        pre_life_mask = get_living_mask(x)
 
     # We stack the dx and dy values to each cell
     y = self.perceive(x, angle)
@@ -97,8 +98,9 @@ class CAModel(tf.keras.Model):
     # We apply the change on updated cells
     x += dx * tf.cast(update_mask, PRECISION)
 
-    post_life_mask = get_living_mask(x)
+    if ALPHA:
+        post_life_mask = get_living_mask(x)
+        life_mask = pre_life_mask & post_life_mask
+        return x * tf.cast(life_mask, PRECISION)
     
-    life_mask = pre_life_mask & post_life_mask
-    
-    return x * tf.cast(life_mask, PRECISION)
+    return x

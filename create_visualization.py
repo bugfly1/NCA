@@ -3,16 +3,16 @@ import numpy as np
 import os
 from src.parameters import *
 from src.CAModel import CAModel
-from src.Utils import to_rgb, imwrite
+from src.Utils import to_rgb, to_rgb_premultiplied, imwrite
 
-color_black = (0, 0, 0)
-color_white = (255, 255, 255)
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
 
 # https://stackoverflow.com/questions/54607447/opencv-how-to-overlay-text-on-video
 def __draw_label(img, text, pos, bg_color):
    font_face = cv2.FONT_HERSHEY_SIMPLEX
    scale = 0.4
-   color = color_black
+   color = BLACK
    thickness = cv2.FILLED
    margin = 2
    txt_size = cv2.getTextSize(text, font_face, scale, thickness)
@@ -83,17 +83,17 @@ def create_video(model_path, n_iters_before, video_dims, fps, output_file, n_ite
     # Grabamos el video
     for i in range(n_iters_video):
         x = ca(x)
-        rgb = to_rgb(x[0]).numpy()
+        rgb = to_rgb_premultiplied(x[0]).numpy()
         rgb = cv2.normalize(rgb, None, 255, 0, cv2.NORM_MINMAX, cv2.CV_8U)
         
         # ahora mismo el video es de 40 x 40
         rgb = np.repeat(rgb, frame_height // grid_h, axis=0)
         rgb = np.repeat(rgb, frame_height // grid_w, axis=1)
-        # ahora 720x720
         
         vis = pad_until_video_resolution(rgb)
-        __draw_label(vis, f"step: {i+n_iters_before}", (frame_height, 10), color_white)
+        __draw_label(vis, f"step: {i+n_iters_before}", (frame_height, 10), WHITE)
         out.write(vis)
+        
 
 
     out.release()
@@ -102,14 +102,14 @@ def create_video(model_path, n_iters_before, video_dims, fps, output_file, n_ite
 
 if __name__ == "__main__":
     
-    
+    nombre_modelo = "2f_rgba_EstableSoftmin_T=8"
     create_video(
-        model_path="3frames_real/10000/10000.weights.h5",
+        model_path= f"{nombre_modelo}/9000/9000.weights.h5",
         n_iters_before=0,
         video_dims = (640, 480),
         fps=30,
-        output_file="NCA.mp4",
-        n_iters_video=10000
+        output_file=f"{nombre_modelo}.mp4",
+        n_iters_video=5000
     )
     
     

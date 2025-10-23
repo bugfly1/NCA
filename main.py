@@ -1,15 +1,15 @@
 import os
 import numpy as np
 import tensorflow as tf
-from src.Utils import (load_target, imwrite, to_rgba, make_circle_masks, save_loss, load_training,
+from src.Utils import (imwrite, to_rgba, make_circle_masks, save_loss, load_training,
                       export_model, visualize_batch, visualize_target, visualize_series, plot_loss, 
-                      generate_pool_figures, to_rgb, save_rolls, export_ca_to_webgl_demo, save_params)
+                      generate_pool_figures, to_rgb, save_params)
+from src.load_target import load_target
 from src.CAModel import CAModel
 from src.SamplePooling import SamplePool
 from src.parameters import *
 from src.loss import loss_batch_tf, loss_serie, loss_f
 from math import isnan, isinf
-import time
 
 os.environ['FFMPEG_BINARY'] = 'ffmpeg'
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -52,7 +52,6 @@ os.system('clear')
 pad_target = load_target(SRC_TARGET)
 n_frames = 1
 
-
 ### Load and pad target Image
 if VIDEO:
     n_frames = pad_target.shape[0]
@@ -84,7 +83,10 @@ else:
     begining = 0
 
 def train_serie(x):
-    n_frames_local = min(n_frames, 2*TAU)
+    if SERIE_CORTA:
+        n_frames_local = min(n_frames, 2*TAU)
+    else:
+        n_frames_local = n_frames
     iter_n = T
     with tf.GradientTape() as g:
         lista_serie = tf.TensorArray(dtype=PRECISION, size=n_frames_local)
@@ -96,7 +98,7 @@ def train_serie(x):
         # Changes shape from (n_frames, n_batch, h, w, channels) to
         # (n_batch, n_frames, h, w, channels)
         serie_CA = tf.transpose(serie_CA, perm=[1,0,2,3,4])
-        
+        #loss = loss_serie(serie_CA, serie_temporal_extendida)
         loss = loss_batch_tf(serie_CA, serie_temporal_extendida)
 
     grads = g.gradient(loss, ca.weights)
