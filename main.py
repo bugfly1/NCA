@@ -8,7 +8,7 @@ from src.load_target import load_target
 from src.CAModel import CAModel
 from src.SamplePooling import SamplePool
 from src.parameters import *
-from src.loss import loss_batch_tf, loss_serie, loss_f
+from src.loss import loss_batch_tf, loss_serie, loss_f, get_tbar
 from math import isnan, isinf
 
 os.environ['FFMPEG_BINARY'] = 'ffmpeg'
@@ -35,12 +35,7 @@ loss_log = np.array([])
 os.system('clear')
 
 # TODO:
-# - Probar entregar parametros constantes como input
 # - Probar el agregar una medicion de diferencia entre elementos de la sequencia en la funcion de perdida
-# - En perdida, comparar por rgb en vez de rgba. El que haya estado asi todo este rato significa que 
-#       le estabamos pidiendo que todas las celulas estuvieran vivas (puse que todo el alpha fuera 1), talvez eso causa el
-#       crecimiento descontrolado al principio
-# - Usar como seed el ultimo frame y empezar desde ahi
 # - Agregar lo que sea que hicieron aqui cuando lo liberen https://cells2pixels.github.io/
 # - Probar traslacion desde la dimension de frecuencia (DFT de las imagenes de input) https://tuprints.ulb.tu-darmstadt.de/29695/1/DemocratizingLearning_JohnKalkhof.pdf#page=14.62
 #                                                                                       (Instant Global Communication through the Fourier Space)
@@ -82,7 +77,7 @@ if START_TRAINING_FROM_SAVE_POINT:
 else:
     begining = 0
 
-def train_serie(x):
+def train_serie(x, step_i, serie_target= serie_temporal_extendida, tbar_fijo=None):
     if SERIE_CORTA:
         n_frames_local = min(n_frames, 2*TAU)
     else:
@@ -94,17 +89,21 @@ def train_serie(x):
             for i in tf.range(iter_n):
                 x = ca(x)
             lista_serie.write(j,x).mark_used()
-        serie_CA = lista_serie.stack()
+        Batch_CA = lista_serie.stack()
+        
         # Changes shape from (n_frames, n_batch, h, w, channels) to
         # (n_batch, n_frames, h, w, channels)
-        serie_CA = tf.transpose(serie_CA, perm=[1,0,2,3,4])
-        #loss = loss_serie(serie_CA, serie_temporal_extendida)
-        loss = loss_batch_tf(serie_CA, serie_temporal_extendida)
+        Batch_CA = tf.transpose(Batch_CA, perm=[1,0,2,3,4])
+        
+        #if step_i > 2000 and tbar_fijo == None:
+        #    tbar_fijo=get_tbar(Batch_CA, serie_target)
+        #loss = loss_serie(Batch_CA, serie_temporal_extendida, tbar_fijo)
+        loss = loss_batch_tf(Batch_CA, serie_target, tbar_fijo)
 
     grads = g.gradient(loss, ca.weights)
     grads = [g/(tf.norm(g)+1e-8) for g in grads]
     trainer.apply_gradients(zip(grads, ca.weights))
-    return x, loss, serie_CA
+    return x, loss, Batch_CA, tbar_fijo
  
 
 ### Training function
@@ -126,10 +125,10 @@ def train_step(x):
     return x, loss
 
 
-x = 0
+tbar_fijo = None
 # ========================= Training Loop =====================
 for i in range(begining, 10000+1):
-  ### Generate input grids for CA
+### Generate input grids for CA
 
     if ROLL and USE_PATTERN_POOL:
         batch = pool.sample(n_frames)
@@ -161,20 +160,17 @@ for i in range(begining, 10000+1):
         if DAMAGE_N:
             damage = 1.0-make_circle_masks(DAMAGE_N, h, w).numpy()[..., None]
             x0[-DAMAGE_N:] *= damage
-       
+    
     else:
         x0 = np.repeat(seed[None, ...], BATCH_SIZE, 0)
     
     
-    #start = time.time()
     ## Train
     if SERIE:
-        x, loss, serie_CA = train_serie(x0)
+        x, loss, Batch_CA, tbar_fijo = train_serie(x0, step_i=i, tbar_fijo=tbar_fijo)
     else:    
         x, loss = train_step(x0)
 
-    #end = time.time()
-    #print("elapsed time: ", end-start)
 
     if USE_PATTERN_POOL:
         batch.x[:] = x
@@ -197,7 +193,7 @@ for i in range(begining, 10000+1):
         save_loss(loss_log, step_i)
         
         if SERIE:
-            visualize_series(serie_CA, step_i)
+            visualize_series(Batch_CA, step_i)
             #visualize_step_seed(x0, step_i)
         else:
             visualize_batch(x0, x, step_i)

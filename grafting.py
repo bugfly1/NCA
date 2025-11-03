@@ -1,166 +1,133 @@
-import numpy as np
-import tensorflow as tf
-import cv2
 from src.CAModel import CAModel
-from src.Utils import imwrite, to_rgb_premultiplied, to_rgb
-from src.parameters import *
+from src.Utils import *
+from src.load_target import load_target
+from src.loss import loss_batch_tf
+from src.SamplePooling import SamplePool
+from math import isnan, isinf
+from src.parameters import SRC_TARGET
+import os
 
-BLACK = (0, 0, 0)
-WHITE = (255, 255, 255)
+# TODO:
+#   - parent: 2f, target: 3f. Le cuesta aumentar?
+#   - Completamente distintas imagenes
 
-# https://stackoverflow.com/questions/54607447/opencv-how-to-overlay-text-on-video
-def __draw_label(img, text, pos, bg_color):
-   font_face = cv2.FONT_HERSHEY_SIMPLEX
-   scale = 0.4
-   color = BLACK
-   thickness = cv2.FILLED
-   margin = 2
-   txt_size = cv2.getTextSize(text, font_face, scale, thickness)
+parent = "2f_rgb_min"
+target_name = SRC_TARGET
+model_name = parent + "_" + target_name
 
-   end_x = pos[0] + txt_size[0][0] + margin
-   end_y = pos[1] - txt_size[0][1] - margin
+pad_target = load_target(SRC_TARGET)
 
-   cv2.rectangle(img, pos, (end_x, end_y), bg_color, thickness)
-   cv2.putText(img, text, pos, font_face, scale, color, 1, cv2.LINE_AA)
-   
+n_frames = pad_target.shape[0]
+h, w, _ = pad_target.shape[-3:]
 
+inicio = 10000
+ca = CAModel()
+ca.load_weights(f"{parent}/{inicio}/{inicio}.weights.h5")
 
-def create_video_grafting(ca1, ca2, mask, n_iters_before, video_dims, fps, output_file, n_iters_video):        
-    grid_h, grid_w = 2*TARGET_PADDING + TARGET_SIZE, 2*TARGET_PADDING + TARGET_SIZE
-    seed = np.zeros([grid_h, grid_w, CHANNEL_N], dtype=np.float32)
-    seed[grid_h//2, grid_w//2, 3:] = 1.0
-    x = np.repeat(seed[None, ...], 1, 0)
-
-    frame_width, frame_height = video_dims
-
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')  
-    out = cv2.VideoWriter(output_file, fourcc, fps, (frame_width, frame_height))
-
-    def pad_until_video_resolution(grid):
-        h, w, _ = grid.shape    
-        grid = np.pad(grid, [((frame_height - h)//2, (frame_height - h)//2),
-                            ((frame_width - w)//2, (frame_width - w)//2),
-                            (0,0)]
-                    )
-        return grid
-
-    # Realizamos iteraciones sin grabar (para revisar periodicidad)
-    for j in range(n_iters_before):
-        x1, x2 = ca1(x), ca2(x)
-        x = x1 + (x2 - x1)*mask
-
-    # Grabamos el video
-    for i in range(n_iters_video):
-        # Grafteamos
-        x1, x2 = ca1(x), ca2(x)
-        x = x1 + (x2 - x1)*mask
-        
-        rgb = to_rgb(x[0]).numpy()
-        rgb = cv2.normalize(rgb, None, 255, 0, cv2.NORM_MINMAX, cv2.CV_8U)
-        
-        # ahora mismo el video es de 40 x 40
-        rgb = np.repeat(rgb, frame_height // grid_h, axis=0)
-        rgb = np.repeat(rgb, frame_height // grid_w, axis=1)
-        # ahora 720x720
-        
-        vis = pad_until_video_resolution(rgb)
-        __draw_label(vis, f"step: {i+n_iters_before}", (frame_height, 10), WHITE)
-        out.write(vis)
-
-
-    out.release()
-    print("Video saved as", output_file)
-
-
-
-# https://www.geeksforgeeks.org/python/how-to-generate-2-d-gaussian-array-using-numpy/
-def gaussian_filter(kernel_size, sigma=1, muu=0):
-    # Initializing value of x, y as grid of kernel size in the range of kernel size
-    x, y = np.meshgrid(np.linspace(-1, 1, kernel_size),
-                       np.linspace(-1, 1, kernel_size))
-    dst = np.sqrt(x**2 + y**2)
-
-    # Normal part of the Gaussian function
-    normal = 1 / (2 * np.pi * sigma**2)
-
-    # Calculating Gaussian filter
-    gauss = np.exp(-((dst - muu)**2 / (2.0 * sigma**2))) * normal
-
-    return gauss  # Return the calculated Gaussian filter
-
-
-# ChatGPT
-def center_decay_matrix(size, decay='linear'):
-    """
-    Create a matrix where values diminish from the center.
-    
-    Args:
-        size (int or tuple): Size of the matrix (e.g., 5 or (5, 7))
-        decay (str): 'linear' or 'exponential' decay pattern.
-    
-    Returns:
-        np.ndarray: The resulting matrix.
-    """
-    # Handle square or rectangular matrices
-    if isinstance(size, int):
-        rows = cols = size
-    else:
-        rows, cols = size
-    
-    # Create grid of coordinates
-    y, x = np.ogrid[:rows, :cols]
-    
-    # Compute distance from center
-    cy, cx = (rows - 1) / 2, (cols - 1) / 2
-    distance = np.sqrt((x - cx)**2 + (y - cy)**2)
-    
-    # Normalize distance to [0, 1]
-    distance /= distance.max()
-    
-    # Apply decay function
-    if decay == 'linear':
-        matrix = 1 - distance
-    elif decay == 'exponential':
-        matrix = np.exp(-3 * distance)  # you can tune the 3 for steeper/softer decay
-    else:
-        raise ValueError("decay must be 'linear' or 'exponential'")
-    
-    return matrix
-
-
-
-# Example usage
-m = center_decay_matrix(7, decay='exponential')
-print(np.round(m, 2))
-
-
-ca1 = CAModel()
-ca1.load_weights("models/first_periodic/8000/8000.weights.h5")
-ca2 = CAModel()
-ca2.load_weights("models/first_periodic/8000/8000.weights.h5")
-
-h, w, CHANNEL_N = 48, 48, 16
+## Trainer SetUp
+lr = 2e-3
+lr_sched = tf.keras.optimizers.schedules.PiecewiseConstantDecay(
+    [2000], [lr, lr*0.1])
+trainer = tf.keras.optimizers.Adam(lr_sched)
+prev_log = load_loss_log(f"{parent}/{inicio}/{inicio}_loss.npy")
+loss_log = prev_log
 # We add invisible parameters to CA
-seed = np.zeros([h, w, CHANNEL_N], dtype=np.float32)
+seed = np.zeros([h, w, CHANNEL_N], dtype=NP_PRECISION)
 # Set center cell alive for seed
 seed[h//2, w//2, 3:] = 1.0
 #seed[:,:,:4] = pad_target[-1]
+pool = SamplePool(x=np.repeat(seed[None, ...], POOL_SIZE, 0))
+
+if SERIE:
+    serie_temporal_extendida = np.repeat(pad_target, TAU, axis=0)
+    # Duplica el video
+    #serie_temporal_extendida = np.append(serie_temporal_extendida, serie_temporal_extendida, axis=0)
+    n_frames = len(serie_temporal_extendida)
+    visualize_target(serie_temporal_extendida)
+
+def train_serie(x):
+    if SERIE_CORTA:
+        n_frames_local = min(n_frames, 2*TAU)
+    else:
+        n_frames_local = n_frames
+    iter_n = T
+    with tf.GradientTape() as g:
+        lista_serie = tf.TensorArray(dtype=PRECISION, size=n_frames_local)
+        for j in tf.range(n_frames_local):
+            for i in tf.range(iter_n):
+                x = ca(x)
+            lista_serie.write(j,x).mark_used()
+        serie_CA = lista_serie.stack()
+        # Changes shape from (n_frames, n_batch, h, w, channels) to
+        # (n_batch, n_frames, h, w, channels)
+        serie_CA = tf.transpose(serie_CA, perm=[1,0,2,3,4])
+        #loss = loss_serie(serie_CA, serie_temporal_extendida)
+        loss = loss_batch_tf(serie_CA, serie_temporal_extendida)
+
+    grads = g.gradient(loss, ca.weights)
+    grads = [g/(tf.norm(g)+1e-8) for g in grads]
+    trainer.apply_gradients(zip(grads, ca.weights))
+    return x, loss, serie_CA
+
+# ========================= Training Loop =====================
+for i in range(inicio, 20000+1):
+  ### Generate input grids for CA
+
+    if ROLL and USE_PATTERN_POOL:
+        batch = pool.sample(n_frames)
+        for i in range(n_frames):
+            k = pool.sample()
+        x0 = batch.x
+    elif SERIE and USE_PATTERN_POOL:
+        batch = pool.sample(BATCH_SIZE)
+        x0 = batch.x
+        x0[:1] = seed
+
+        if DAMAGE_N:
+            damage = 1.0-make_circle_masks(DAMAGE_N, h, w).numpy()[..., None]
+            x0[-DAMAGE_N:] *= damage
+       
+    else:
+        x0 = np.repeat(seed[None, ...], BATCH_SIZE, 0)
+    
+    
+    ## Train
+    
+    x, loss, serie_CA = train_serie(x0)
 
 
-mask = center_decay_matrix(40)
-imwrite("mask.jpg", mask)
 
-print(mask.shape)
+    if USE_PATTERN_POOL:
+        batch.x[:] = x
+        batch.commit()
 
-x = np.repeat(seed[None, ...], 1, 0)
+    if isinf(loss) or isnan(loss):
+        print("Exploto la perdida", "b:", b)
+        exit(1)
+    
+    step_i = i
+    loss_log = np.append(loss_log, loss.numpy())
 
-create_video_grafting(
-    ca1 = ca1,
-    ca2 = ca2,
-    mask = mask,
-    n_iters_before=0,
-    video_dims = (640, 480),
-    fps=30,
-    output_file="NCA.mp4",
-    n_iters_video=5000
-)
+    ### Save Training Data
+    if step_i%200 == 0:
+        if not os.path.isdir(f"train_log/{step_i:04d}"):
+            os.mkdir(f"train_log/{step_i:04d}")
+        
+        plot_loss(loss_log, step_i)
+        export_model(ca, step_i)
+        save_loss(loss_log, step_i)
+        
+        if SERIE:
+            visualize_series(serie_CA, step_i)
+            #visualize_step_seed(x0, step_i)
+        else:
+            visualize_batch(x0, x, step_i)
+        
+        if USE_PATTERN_POOL:
+            generate_pool_figures(pool, step_i)
+        
+        # Un pool de 1024 son 300-500 MB
+        #save_pool(pool, step_i)
+
+    #print('\r step: %d, log10(loss): %.3f'%(i, np.log10(loss)), end='')
+    print('\r step: %d, loss: %f'%(i, loss), end='')

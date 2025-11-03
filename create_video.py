@@ -8,14 +8,19 @@ def load_image(path):
 output_file = "translation.mp4"
 frame_width, frame_height = 128, 128
 fps = 2.0
-path_img1 = "data/images/dcc_comprimido.png"
-path_img2 = "data/images/charmander.png"
+path_img1 = "data/images/catterpillar.png"
+path_img2 = "data/images/butterfly.png"
 path_img3 = "data/images/cpu.png"
+path_img4 = "data/images/ccc_robot.png"
 
-img1 = load_image(path_img1)
-img2 = load_image(path_img2)
-img3 = load_image(path_img3)
-img3 = cv2.resize(img3, (frame_height, frame_width), interpolation=cv2.INTER_AREA)
+#img1 = load_image(path_img1)
+#img2 = load_image(path_img2)
+#img3 = load_image(path_img3)
+#img4 = load_image(path_img4)
+#img1 = cv2.resize(img1, (frame_height, frame_width), interpolation=cv2.INTER_AREA)
+#img2 = cv2.resize(img2, (frame_height, frame_width), interpolation=cv2.INTER_AREA)
+#img3 = cv2.resize(img3, (frame_height, frame_width), interpolation=cv2.INTER_AREA)
+#img4 = cv2.resize(img4, (frame_height, frame_width), interpolation=cv2.INTER_AREA)
 
 
 
@@ -44,7 +49,7 @@ out.write(frame)
 #out.write(img1)
 #out.write(img2)
 #out.write(img3)
-
+#out.write(img4)
 
 out.release()
 print("Video saved as", output_file)

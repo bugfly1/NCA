@@ -25,7 +25,7 @@ export function createDemo(divId) {
     
     const modelDir = settings.modelDir; 
     let experiment = 'ex3';
-    let target = '💻'; 
+    let target = '🦎'; 
 
     let paused = false;
 

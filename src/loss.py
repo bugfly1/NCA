@@ -34,41 +34,59 @@ def EstableSoftmin(x):
 
 ## ============ Serie =====================
 # Principalmente para DEBUG
-def loss_serie(serie_CA, serie_extendida):
-    n_frames = serie_CA.shape[-4]
-    lista_serie = tf.TensorArray(dtype=tf.float32, size=BATCH_SIZE)
+def loss_serie(Batch_CA, serie_extendida, tbar_fijo=None):
+    n_frames = Batch_CA.shape[-4]
+    lista_series = tf.TensorArray(dtype=tf.float32, size=BATCH_SIZE)
     for i in tf.range(BATCH_SIZE):
-        batch = serie_CA[i]
-        error = [tf.reduce_mean(pixelWiseMSE(batch, tf.roll(serie_extendida, tbar, axis=0)), axis=[-1]) for tbar in tf.range(n_frames)]
+        serie_CA = Batch_CA[i]
+        if tbar_fijo == None:
+            error = [tf.reduce_mean(pixelWiseMSE(serie_CA, tf.roll(serie_extendida, tbar, axis=0)), axis=[-1]) for tbar in tf.range(n_frames)]
+        else:
+            error = tf.reduce_mean(pixelWiseMSE(serie_CA, tf.roll(serie_extendida, tbar_fijo, axis=0)), axis=[-1])
         
-        tf.print("\n\nError por tbar:", error)
+        #tf.print("\n\nError por tbar:", error)
         error = tf.convert_to_tensor(error, dtype=tf.float32)
+        #print(tf.argmin(input=error).numpy().item())
         
-        batch_MSE = softmin(error)
-        tf.print('softmin:', batch_MSE)
-        lista_serie.write(i,batch_MSE).mark_used()
+        #serie_MSE = softmin(error)
+        serie_MSE = tf.reduce_min(error)
+        #tf.print('softmin:', serie_MSE)
+        lista_series.write(i,serie_MSE).mark_used()
     
-    lista_tensor = lista_serie.stack()
-    tf.print("Error por batchs", lista_tensor)
+    Batch_MSE = lista_series.stack()
+    #tf.print("Error por batchs", lista_tensor)
 
-    loss = tf.reduce_mean(lista_tensor)
-    tf.print("Loss:", loss)
+    loss = tf.reduce_mean(Batch_MSE)
+    #tf.print("Loss:", loss)
     return loss
 
+
+def get_tbar(Batch_CA, serie_extendida):
+    serie_CA = Batch_CA[1]
+    n_frames = serie_CA.shape[-4]
+    MSE = tf.map_fn(lambda tbar: tf.reduce_mean(pixelWiseMSE(serie_CA, tf.roll(serie_extendida, tbar, axis=0)), axis=[-1]), tf.range(n_frames), fn_output_signature=PRECISION)
+    return tf.argmin(input=MSE).numpy().item()
+    
+    
 @tf.function
-def loss_serie_tf(serie_CA, serie_extendida, n_frames):
+def loss_serie_tf(serie_CA, serie_extendida, n_frames, tbar_fijo=None):
+    if tbar_fijo != None:
+        MSE = tf.reduce_mean(pixelWiseMSE(serie_CA, tf.roll(serie_extendida, tbar_fijo, axis=0)), axis=[-1])
+        return MSE
+    
     if SERIE_CORTA:
         MSE = tf.map_fn(lambda tbar: tf.reduce_mean(pixelWiseMSE(serie_CA, tf.roll(serie_extendida, tbar, axis=0)[:2*TAU]), axis=[-1]), tf.range(n_frames), fn_output_signature=PRECISION)
-    else:
+    else:        
         MSE = tf.map_fn(lambda tbar: tf.reduce_mean(pixelWiseMSE(serie_CA, tf.roll(serie_extendida, tbar, axis=0)), axis=[-1]), tf.range(n_frames), fn_output_signature=PRECISION)
-    return softmin(MSE)
+    
+    return tf.reduce_min(MSE) #softmin(MSE)
 
 @tf.function
-def loss_batch_tf(serie_CA, serie_extendida):
-    n_frames = serie_CA.shape[-4]
+def loss_batch_tf(Batch_CA, serie_extendida, tbar_fijo=None):
+    n_frames = Batch_CA.shape[-4]
     # Separamos por batch para evaluar el softmin de cada uno
-    new_serie = tf.map_fn(fn=lambda t: loss_serie_tf(t, serie_extendida, n_frames), elems=serie_CA, fn_output_signature=PRECISION)
-    return tf.reduce_mean(new_serie)
+    Batch_MSE = tf.map_fn(fn=lambda serie_CA: loss_serie_tf(serie_CA, serie_extendida, n_frames, tbar_fijo), elems=Batch_CA, fn_output_signature=PRECISION)
+    return tf.reduce_mean(Batch_MSE)
 
 
 
