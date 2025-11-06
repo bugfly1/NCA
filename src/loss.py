@@ -37,6 +37,8 @@ def EstableSoftmin(x):
 def loss_serie(Batch_CA, serie_extendida, tbar_fijo=None):
     n_frames = Batch_CA.shape[-4]
     lista_series = tf.TensorArray(dtype=tf.float32, size=BATCH_SIZE)
+    lista_tbar = tf.TensorArray(dtype=tf.float32, size=BATCH_SIZE)
+    
     for i in tf.range(BATCH_SIZE):
         serie_CA = Batch_CA[i]
         if tbar_fijo == None:
@@ -50,43 +52,47 @@ def loss_serie(Batch_CA, serie_extendida, tbar_fijo=None):
         
         #serie_MSE = softmin(error)
         serie_MSE = tf.reduce_min(error)
-        #tf.print('softmin:', serie_MSE)
+        min_tbar = tf.argmin(input=serie_MSE)
+        
+        lista_tbar.write(i, min_tbar).mark_used()
         lista_series.write(i,serie_MSE).mark_used()
     
     Batch_MSE = lista_series.stack()
+    tbar_batch = lista_tbar.stack()
     #tf.print("Error por batchs", lista_tensor)
 
     loss = tf.reduce_mean(Batch_MSE)
+    tbar_step = tf.reduce_mean(tbar_batch)
     #tf.print("Loss:", loss)
-    return loss
+    return loss, tbar_step
 
 
-def get_tbar(Batch_CA, serie_extendida):
-    serie_CA = Batch_CA[1]
-    n_frames = serie_CA.shape[-4]
+def get_min_tbar(serie_CA, serie_extendida, n_frames):
     MSE = tf.map_fn(lambda tbar: tf.reduce_mean(pixelWiseMSE(serie_CA, tf.roll(serie_extendida, tbar, axis=0)), axis=[-1]), tf.range(n_frames), fn_output_signature=PRECISION)
-    return tf.argmin(input=MSE).numpy().item()
+    return tf.argmin(input=MSE, output_type=tf.int32)
     
     
 @tf.function
 def loss_serie_tf(serie_CA, serie_extendida, n_frames, tbar_fijo=None):
     if tbar_fijo != None:
         MSE = tf.reduce_mean(pixelWiseMSE(serie_CA, tf.roll(serie_extendida, tbar_fijo, axis=0)), axis=[-1])
-        return MSE
+        return MSE, None
     
     if SERIE_CORTA:
         MSE = tf.map_fn(lambda tbar: tf.reduce_mean(pixelWiseMSE(serie_CA, tf.roll(serie_extendida, tbar, axis=0)[:2*TAU]), axis=[-1]), tf.range(n_frames), fn_output_signature=PRECISION)
     else:        
         MSE = tf.map_fn(lambda tbar: tf.reduce_mean(pixelWiseMSE(serie_CA, tf.roll(serie_extendida, tbar, axis=0)), axis=[-1]), tf.range(n_frames), fn_output_signature=PRECISION)
     
-    return tf.reduce_min(MSE) #softmin(MSE)
+    return MSE
 
 @tf.function
-def loss_batch_tf(Batch_CA, serie_extendida, tbar_fijo=None):
+def loss_batch_tf(Batch_CA, serie_extendida, tbar_fijo=None, dtype=PRECISION):
     n_frames = Batch_CA.shape[-4]
     # Separamos por batch para evaluar el softmin de cada uno
-    Batch_MSE = tf.map_fn(fn=lambda serie_CA: loss_serie_tf(serie_CA, serie_extendida, n_frames, tbar_fijo), elems=Batch_CA, fn_output_signature=PRECISION)
-    return tf.reduce_mean(Batch_MSE)
+    Batch_MSE = tf.map_fn(fn=lambda serie_CA: loss_serie_tf(serie_CA, serie_extendida, n_frames, tbar_fijo), elems=Batch_CA, fn_output_signature=dtype)
+    min_tbars = tf.map_fn(fn=lambda serie_MSE: tf.argmin(input=serie_MSE, output_type=tf.int32), elems=Batch_MSE, fn_output_signature=tf.int32)
+    Batch_MSE = tf.map_fn(fn=lambda serie_MSE: tf.reduce_min(serie_MSE), elems=Batch_MSE, fn_output_signature=dtype)
+    return tf.reduce_mean(Batch_MSE), min_tbars
 
 
 

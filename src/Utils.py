@@ -2,7 +2,7 @@ import numpy as np
 import base64
 import tensorflow as tf
 import json
-import matplotlib.pylab as pl
+import matplotlib.pyplot as plt
 from tensorflow.python.framework import convert_to_constants
 from google.protobuf.json_format import MessageToDict
 
@@ -88,7 +88,11 @@ def load_training(checkpoint=SAVE_POINT):
 
 ## ============ Save Training Data ============
 def generate_pool_figures(pool, step_i):
-    tiled_pool = tile2d(to_rgb(pool.x[:49]))
+    if ALPHA:
+        tiled_pool = tile2d(to_rgb_premultiplied(pool.x[:49]))
+    else:
+        tiled_pool = tile2d(to_rgb(pool.x[:49]))
+
     fade = np.linspace(1.0, 0.0, 72)
     ones = np.ones(72)
     tiled_pool[:, :72] += (-tiled_pool[:, :72] + ones[None, :, None]) * fade[None, :, None]
@@ -98,8 +102,13 @@ def generate_pool_figures(pool, step_i):
     imwrite('train_log/%04d/%04d_pool.jpg'%(step_i, step_i), tiled_pool)
 
 def visualize_batch(x0, x, step_i):
-    vis0 = np.hstack(to_rgb(x0).numpy())
-    vis1 = np.hstack(to_rgb(x).numpy())
+    if ALPHA:
+        vis0 = np.hstack(to_rgb_premultiplied(x0).numpy())
+        vis1 = np.hstack(to_rgb_premultiplied(x).numpy())
+    else:
+        vis0 = np.hstack(to_rgb(x0).numpy())
+        vis1 = np.hstack(to_rgb(x).numpy())
+    
     vis = np.vstack([vis0, vis1])
     imwrite('train_log/%04d/batches_%04d.jpg'%(step_i, step_i), vis)
     #print('batch (before/after):')
@@ -107,33 +116,61 @@ def visualize_batch(x0, x, step_i):
 
 
 def visualize_target(target):
-    vis = np.hstack(to_rgb(target).numpy())
+    if ALPHA:
+        vis = np.hstack(to_rgb_premultiplied(target).numpy())
+    else:
+        vis = np.hstack(to_rgb(target).numpy())
+        
     imwrite('train_log/target.jpg', vis)
 
 def visualize_series(serie_CA, step_i):
     n_batches, n_frames, h, w, channels = serie_CA.shape
     vis = np.zeros((n_batches, h, n_frames*w, 3))
     for batch in range(n_batches):
-        line = np.hstack(to_rgb(serie_CA[batch]).numpy())
+        if ALPHA:
+            line = np.hstack(to_rgb_premultiplied(serie_CA[batch]).numpy())
+        else:
+            line = np.hstack(to_rgb(serie_CA[batch]).numpy())
         vis[batch] = line
     vis = np.vstack(vis)
 
     imwrite('train_log/%04d/serie_%04d.jpg'%(step_i, step_i), vis)
   
 def visualize_step_seed(seed, step_i):
-    seed = to_rgb(seed[0]).numpy()
+    if ALPHA:
+        seed = to_rgb_premultiplied(seed[0]).numpy()
+    else:
+        seed = to_rgb(seed[0]).numpy()
+        
     imwrite('train_log/%04d/seed_%04d.jpg'%(step_i, step_i), seed)
     
   
 def plot_loss(loss_log, step_i):
-    pl.figure(figsize=(10, 4))
-    #pl.title('Loss history (log10)')
-    #pl.plot(np.log10(loss_log), '.', alpha=0.1)
-    pl.title('Loss history')
-    pl.plot(loss_log, '.', alpha=0.1)
-    pl.savefig('train_log/%04d/%04d_loss.jpg'%(step_i, step_i))
-    pl.close()
-    #pl.show()
+    plt.figure(figsize=(10, 4))
+    plt.title('Loss history (log10)')
+    
+    if any(point <= 0 for point in loss_log):
+        # No se puede graficar con el valor de log
+        plt.plot(loss_log, '.', alpha=0.1)
+        plt.savefig('train_log/%04d/%04d_loss.jpg'%(step_i, step_i))
+    else:
+        plt.plot(np.log10(loss_log), '.', alpha=0.1)
+        plt.savefig('train_log/%04d/%04d_loss(log10).jpg'%(step_i, step_i))
+    
+    plt.ylabel("Loss")
+    plt.xlabel("Train step")
+    plt.close()
+        
+def plot_tbar(tbar_log, step_i):
+    steps = np.arange(step_i + 1)   # Llegan aca antes de imprimir, por eso es como medio raro
+    steps = np.repeat(steps, BATCH_SIZE, axis=0)
+    plt.figure(figsize=(10, 4))
+    plt.scatter(steps, tbar_log, s=np.repeat(2, len(steps)))
+    plt.title('Valores de tbar por paso de entrenamiento')
+    plt.xlabel("Train step")
+    plt.ylabel("Mean tbar values")
+    plt.savefig('train_log/%04d/%04d_Valores_tbar_scatter.jpg'%(step_i, step_i))
+    plt.close()
 
 def export_model(ca, step_i):
     base_fn = f'train_log/{step_i:04d}/{step_i:04d}.weights.h5'

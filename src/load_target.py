@@ -106,7 +106,7 @@ def add_padding(x: np.ndarray, p=TARGET_PADDING) -> tf.Tensor:
 def load_target(path: str) -> tf.Tensor:
     target = None
     if path.endswith(".png"):
-        target = load_user_image(path)
+        return load_user_image(path)
     elif path.endswith(".mp4"):
         target = load_user_video(path)
     elif path.endswith(".gif"):

@@ -128,19 +128,17 @@ def create_video_grafting(ca1, ca2, mask, grid_dims, n_iters_before, video_dims,
     print("Video saved as", output_file)
 
 
-
-
 ca1 = CAModel()
-ca1.load_weights("models/8000_control/8000.weights.h5")
-ca2 = CAModel()
-ca2.load_weights("models/2frames/2f_rgb_min/10000/10000.weights.h5")
+#ca1.load_weights("models/8000_control/8000.weights.h5")
 
-h, w, CHANNEL_N = 40+32, 40+32, 16
+ca2 = CAModel()
+#ca2.load_weights("models/2frames/2f_rgb_min/10000/10000.weights.h5")
+
+
+h, w, CHANNEL_N = 2*TARGET_PADDING + TARGET_SIZE, 2*TARGET_PADDING + TARGET_SIZE, CHANNEL_N
 # We add invisible parameters to CA
 seed = np.zeros([h, w, CHANNEL_N], dtype=np.float32)
-# Set center cell alive for seed
 seed[h//2, w//2, 3:] = 1.0
-#seed[:,:,:4] = pad_target[-1]
 
 
 #mask = center_decay_matrix(40)
@@ -151,7 +149,6 @@ mask[:,w//2:] = 1
 #mask = np.repeat(mask[..., None], CHANNEL_N, -1)
 
 x = np.repeat(seed[None, ...], 1, 0)
-
 
 create_video_grafting(
     ca1 = ca1,

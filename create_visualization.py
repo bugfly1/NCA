@@ -83,7 +83,7 @@ def create_video(model_path, n_iters_before, video_dims, fps, output_file, n_ite
     # Grabamos el video
     for i in range(n_iters_video):
         x = ca(x)
-        rgb = to_rgb_premultiplied(x[0]).numpy()
+        rgb = to_rgb(x[0]).numpy()
         rgb = cv2.normalize(rgb, None, 255, 0, cv2.NORM_MINMAX, cv2.CV_8U)
         
         # ahora mismo el video es de 40 x 40
@@ -102,7 +102,7 @@ def create_video(model_path, n_iters_before, video_dims, fps, output_file, n_ite
 
 if __name__ == "__main__":
     
-    nombre_modelo = "2f_rgba_EstableSoftmin_T=8"
+    nombre_modelo = "3f_FireRate=1"
     create_video(
         model_path= f"{nombre_modelo}/9000/9000.weights.h5",
         n_iters_before=0,

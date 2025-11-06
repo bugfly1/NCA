@@ -17,5 +17,3 @@ DAMAGE_N=0
 PRECISION=tf.float32
 
 ALPHA=True
-
-Min en ves de softmin
