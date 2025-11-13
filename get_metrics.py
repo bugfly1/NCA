@@ -43,7 +43,7 @@ def plot_rgb_space(RED_log, GREEN_log, BLUE_log, pad_target, model, initial_step
     plt.savefig(f"{model}_RgbSpace.jpg")
     plt.close()
 
-def plot_PCA(PCA_matrix, model, paso_ajuste):
+def plot_3DPCA(PCA_matrix, model, paso_ajuste):
     scaler = StandardScaler()
     scaled_data = scaler.fit_transform(PCA_matrix)
     pca = PCA(n_components=3)
@@ -71,7 +71,28 @@ def plot_PCA(PCA_matrix, model, paso_ajuste):
     ax.set_xlabel('PC_1')
     ax.set_ylabel('PC_2')
     ax.set_zlabel('PC_3')
-    plt.savefig(f"{model}_PCA_projection.jpg")
+    plt.savefig(f"{model}_PCA3D_projection.jpg")
+    plt.close()
+
+def plot_2DPCA(PCA_matrix, model, paso_ajuste):
+    scaler = StandardScaler()
+    scaled_data = scaler.fit_transform(PCA_matrix)
+    pca = PCA(n_components=2)
+    pca_result = pca.fit_transform(scaled_data)
+    print('Variacion por eje:', pca.explained_variance_ratio_)
+    
+    fig = plt.figure()
+    ax = fig.add_subplot()
+    
+    ax.plot(
+        pca_result[:, 0],
+        pca_result[:, 1]
+    )
+    
+    plt.title(f"PCA projection {model} (inicio={paso_ajuste})")
+    ax.set_xlabel('PC_1')
+    ax.set_ylabel('PC_2')
+    plt.savefig(f"{model}_PCA2D_projection.jpg")
     plt.close()
     
 
@@ -140,13 +161,13 @@ def get_metrics(model_path, pad_target, iter_n):
         min_diff_f = np.min([pixelWiseMSE(x[0], pad_target[t]) for t in range(len(pad_target))])
         min_diff_f_log = np.append(min_diff_f_log, min_diff_f)
         
-        big_as_f_vector = x.numpy().flatten()
+        flattened_vector = x.numpy().flatten()
         
         #print(x[0].numpy().shape)
         #print(big_as_f_vector.shape)
         #print(PCA_matrix.shape)
         
-        PCA_matrix[i] = big_as_f_vector
+        PCA_matrix[i] = flattened_vector
         
         print("\r step: %d , Porcentaje completado: %.3f"%(i, (i/iter_n)*100), end="")
 
@@ -155,14 +176,15 @@ def get_metrics(model_path, pad_target, iter_n):
     plot_rgb_space(RED_log, GREEN_log, BLUE_log, pad_target, model, paso_ajuste)
     plot_min_diff_f(min_diff_f_log, model, paso_ajuste)
     print(PCA_matrix.shape)
-    variacion_por_eje = plot_PCA(PCA_matrix, model, paso_ajuste)
+    variacion_por_eje = plot_3DPCA(PCA_matrix, model, paso_ajuste)
+    variacion_por_eje = plot_2DPCA(PCA_matrix, model, paso_ajuste)
 
 
     
     with open(f"{model}_metrics.txt", "w") as f:
         f.write(f"Paso de ajuste: {paso_ajuste}\n")
         f.write(f"Minima diferencia promedio a un fotograma: {np.mean(min_diff_f_log)}\n")
-        f.write('PCA Variacion por eje:', variacion_por_eje)
+        f.write(f"PCA Variacion por eje: {variacion_por_eje}")
 
 
 if __name__ == "__main__":
