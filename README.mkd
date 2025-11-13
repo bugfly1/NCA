@@ -15,3 +15,11 @@ Para exportar un modelo se debe ejecutar export.py con el path del archivo .weig
 ### Visualizacion (WIP)
 
 Para visualizar el resultado del entrenamiento, se debe colocar el json resultante del exportar el modelo del entremiento en la carpeta post--growing-ca/public/NCA/ con el con el nombre ``ex3_r.json`` (en un futuro lo hare mas facil de usar).
+
+### Bibliografia y referencias
+
+Imagenes de agua:
+<https://www.freepik.com/free-photo/closeup-shot-peaceful-calming-textures-body-water_7810332.htm#fromView=keyword&page=1&position=6&uuid=27190d3d-376d-48fe-95cb-23baee8856d8&query=Water+texture>
+<https://www.freepik.com/free-photo/azure-blue-paint-diffusing-with-water_2254511.htm#fromView=keyword&page=1&position=1&uuid=27190d3d-376d-48fe-95cb-23baee8856d8&query=Water+texture>
+<https://www.freepik.com/free-photo/water-viewed-from_1013344.htm#fromView=keyword&page=1&position=0&uuid=27190d3d-376d-48fe-95cb-23baee8856d8&query=Water+texture>
+<https://www.freepik.com/free-vector/vector-seamless-rippled-swimming-pool-abstract-illustration-horizontally-vertically-repeatable_38449309.htm#fromView=keyword&page=1&position=7&uuid=27190d3d-376d-48fe-95cb-23baee8856d8&query=Water+texture>

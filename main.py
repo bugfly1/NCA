@@ -8,7 +8,7 @@ from src.load_target import load_target
 from src.CAModel import CAModel
 from src.SamplePooling import SamplePool
 from src.parameters import *
-from src.loss import loss_batch_tf, loss_serie, loss_f
+from src.loss import loss_batch_tf, loss_serie, loss_f, loss_batch_tf_tbar_fijo_seed
 from math import isnan, isinf
 
 os.environ['FFMPEG_BINARY'] = 'ffmpeg'
@@ -40,7 +40,6 @@ os.system('clear')
 # - Probar traslacion desde la dimension de frecuencia (DFT de las imagenes de input) https://tuprints.ulb.tu-darmstadt.de/29695/1/DemocratizingLearning_JohnKalkhof.pdf#page=14.62
 #                                                                                       (Instant Global Communication through the Fourier Space)
 # - El agregar el laplaciano rompe el codigo de export_ca_webgl_demo
-# - Probar la norma euclidiana como funcion de perdida
 # ============== Initialize Trainig ==================
 
 # Input loading
@@ -76,34 +75,37 @@ if START_TRAINING_FROM_SAVE_POINT:
 else:
     begining = 0
 
-if SERIE:
-    def train_serie(x, step_i, serie_target= serie_temporal_extendida, tbar_fijo=None):
-        if SERIE_CORTA:
-            n_frames_local = min(n_frames, 2*TAU)
-        else:
-            n_frames_local = n_frames
-        iter_n = T
-        with tf.GradientTape() as g:
-            lista_serie = tf.TensorArray(dtype=PRECISION, size=n_frames_local)
-            for j in tf.range(n_frames_local):
-                for i in tf.range(iter_n):
-                    x = ca(x)
-                lista_serie.write(j,x).mark_used()
-            Batch_CA = lista_serie.stack()
-            
-            # Changes shape from (n_frames, n_batch, h, w, channels) to
-            # (n_batch, n_frames, h, w, channels)
-            Batch_CA = tf.transpose(Batch_CA, perm=[1,0,2,3,4])
-            #if step_i > 2000 and tbar_fijo == None:
-            #    tbar_fijo=get_tbar(Batch_CA, serie_target)
-            #loss, Error_by_tbar = loss_serie(Batch_CA, serie_temporal_extendida, tbar_fijo)
+def train_serie(x, step_i, serie_target= serie_temporal_extendida, tbar_fijo=None):
+    if SERIE_CORTA:
+        n_frames_local = min(n_frames, 2*TAU)
+    else:
+        n_frames_local = n_frames
+    iter_n = T
+    with tf.GradientTape() as g:
+        lista_serie = tf.TensorArray(dtype=PRECISION, size=n_frames_local)
+        for j in tf.range(n_frames_local):
+            for i in tf.range(iter_n):
+                x = ca(x)
+            lista_serie.write(j,x).mark_used()
+        Batch_CA = lista_serie.stack()
+        
+        # Changes shape from (n_frames, n_batch, h, w, channels) to
+        # (n_batch, n_frames, h, w, channels)
+        Batch_CA = tf.transpose(Batch_CA, perm=[1,0,2,3,4])
+        #if step_i > 2000 and tbar_fijo == None:
+        #    tbar_fijo=get_tbar(Batch_CA, serie_target)
+        #loss, Error_by_tbar = loss_serie(Batch_CA, serie_temporal_extendida, tbar_fijo)
+        if tbar_fijo == None:
             loss, min_tbars = loss_batch_tf(Batch_CA, serie_target)
+        else:
+            loss, min_tbars = loss_batch_tf_tbar_fijo_seed(Batch_CA, serie_target, tbar_fijo)
+            
 
-        grads = g.gradient(loss, ca.weights)
-        grads = [g/(tf.norm(g)+1e-8) for g in grads]
-        trainer.apply_gradients(zip(grads, ca.weights))
-        return x, loss, Batch_CA, tbar_fijo, min_tbars
- 
+    grads = g.gradient(loss, ca.weights)
+    grads = [g/(tf.norm(g)+1e-8) for g in grads]
+    trainer.apply_gradients(zip(grads, ca.weights))
+    return x, loss, Batch_CA, min_tbars
+
 
 ### Training function
 @tf.function
@@ -125,6 +127,7 @@ def train_step(x):
 
 
 tbar_fijo = None
+tbar_seed_log = np.array([])
 tbar_log = np.array([])
 # ========================= Training Loop =====================
 for i in range(begining, 10000+1):
@@ -168,11 +171,11 @@ for i in range(begining, 10000+1):
     else:
         x0 = np.repeat(seed[None, ...], BATCH_SIZE, 0)
     
-    
     ## Train
     if SERIE:
-        x, loss, Batch_CA, tbar_fijo, min_tbars = train_serie(x0, step_i=i, tbar_fijo=tbar_fijo)
-        tbar_log = np.append(tbar_log, min_tbars.numpy())
+        x, loss, Batch_CA, min_tbars = train_serie(x0, step_i=i, tbar_fijo=tbar_fijo)
+        tbar_seed_log = np.append(tbar_seed_log, min_tbars[0].numpy())
+        tbar_log = np.append(tbar_log, min_tbars[1:].numpy())
     else:
         x, loss = train_step(x0)
 
@@ -188,6 +191,7 @@ for i in range(begining, 10000+1):
     step_i = i
     loss_log = np.append(loss_log, loss.numpy())
     
+        
     ### Save Training Data
     if step_i%200 == 0 and step_i != 0:
         if not os.path.isdir(f"train_log/{step_i:04d}"):
@@ -200,7 +204,7 @@ for i in range(begining, 10000+1):
         if SERIE:
             visualize_series(Batch_CA, step_i)
             #visualize_step_seed(x0, step_i)
-            plot_tbar(tbar_log, step_i)
+            plot_tbar(tbar_log, tbar_seed_log, step_i)
         else:
             visualize_batch(x0, x, step_i)
         
@@ -209,7 +213,19 @@ for i in range(begining, 10000+1):
         
         # Un pool de 1024 son 300-500 MB
         #save_pool(pool, step_i)
-
+        
+        unique_elements, counts = np.unique(tbar_seed_log, return_counts=True)
+        idx_tbar_max = np.argmax(counts)
+        tbar_max = int(unique_elements[idx_tbar_max])
+        porcentaje = counts[idx_tbar_max] / len(tbar_seed_log)
+        print("\n  mayor tbar:", tbar_max, "porcentaje: %.3f"%(porcentaje))
+        
+        if step_i >= 1000 and porcentaje > 0.7 and tbar_fijo == None:
+            tbar_fijo = tbar_max
+            print("================================")
+            print("Se decidio tbar Fijo:", tbar_fijo)
+            print("================================")
+            
     print('\r step: %d, log10(loss): %.3f'%(i, np.log10(loss)), end='')
     #print('\r step: %d, loss: %f'%(i, loss), end='')
 

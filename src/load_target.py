@@ -56,7 +56,7 @@ def load_gif(path, max_size=TARGET_SIZE, padding=TARGET_PADDING):
             alpha_channel = np.full(gif[i].shape[:-1], 255, dtype=np.float32)
             img_rgba = np.dstack((gif[i], alpha_channel))
             gif[i] = img_rgba
-            
+
 
     temp = np.zeros([len(gif), *gif[0].shape])
     for i in range(len(gif)):

@@ -1,9 +1,33 @@
 import tensorflow as tf
+import keras
+from keras import layers
 from keras.layers import Conv2D, MaxPooling2D
 import numpy as np
 
 from src.parameters import CHANNEL_N, CELL_FIRE_RATE, PRECISION, ALPHA
 
+class CircularConv2D(layers.Layer):
+    def __init__(self, filters, kernel_size, strides=(1, 1), activation=None, **kwargs):
+        super().__init__()
+        self.filters = filters
+        self.kernel_size = kernel_size if isinstance(kernel_size, tuple) else (kernel_size, kernel_size)
+        self.strides = strides
+        self.activation = keras.activations.get(activation)
+        self.conv = layers.Conv2D(
+            filters, kernel_size, strides=strides, padding='valid', use_bias=True
+        )
+
+    def call(self, inputs):
+        kx, ky = self.kernel_size[0] // 2, self.kernel_size[1] // 2
+        # Circular padding
+        padded = tf.experimental.numpy.pad(inputs,
+            pad_width=((0,0), (kx,kx), (ky,ky), (0,0)), mode='wrap'
+        )
+        tf.print(padded.shape)
+        out = self.conv(padded)
+        if self.activation is not None:
+            out = self.activation(out)
+        return out
 
 def get_living_mask(x):
   alpha = x[:, :, :, 3:4]
@@ -47,7 +71,7 @@ class CAModel(tf.keras.Model):
         identify = np.float64([ [0, 0, 0],
                                 [0, 1, 0],
                                 [0, 0, 0]])
-        laplacian = np.float64([   [1, 0, 1],   # No entiendo porque se divide por 4 pero aqui lo hacen 
+        laplacian = np.float64([   [1, 2, 1],   # No entiendo porque se divide por 4 pero aqui lo hacen 
                                    [2,-12,2],   # https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1011589 p.16
                                    [1, 2, 1]])/ 4.0
         # Sobel_x

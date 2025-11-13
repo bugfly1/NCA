@@ -1,0 +1,2 @@
+Paso de ajuste: 164
+Minima diferencia promedio a un fotograma: 0.03723244036734104

@@ -4,7 +4,7 @@ import numpy as np
 # ==================== Parametros ================================
 
 CHANNEL_N = 16        # Number of CA state channels
-TARGET_PADDING = 16    # Number of pixels used to pad the target image border
+TARGET_PADDING = 2    # Number of pixels used to pad the target image border
 TARGET_SIZE = 40
 BATCH_SIZE = 8
 POOL_SIZE = 1024
@@ -17,10 +17,9 @@ TAU = 3
 T = 16
 
 # Determina si se utiliza el canal alpha para perdida y para vida de la celdas
-ALPHA = True
+ALPHA = False
 
-SRC_TARGET = "data/images/lizard.png"
-
+SRC_TARGET = "data/Videos/heavy_diff_n=3.mp4"
 
 
 # Beta, softmin
@@ -43,10 +42,8 @@ else:
 
 N_ITER_CA = [64, 96]     # [64, 96] por defecto
 
-START_TRAINING_FROM_SAVE_POINT = False
-SAVE_POINT = 8000 # step
 
-EXPERIMENT_TYPE = "Regenerating" #@param ["Growing", "Persistent", "Regenerating", "Roll"]
+EXPERIMENT_TYPE = "Serie" #@param ["Growing", "Persistent", "Regenerating", "Roll"]
 
 # Experimentos:
 # Growing, Persistent, Regenerating: Los mismos que se encuentran en el distill
@@ -54,6 +51,8 @@ EXPERIMENT_TYPE = "Regenerating" #@param ["Growing", "Persistent", "Regenerating
 #       frames del video y se comparan con el frame siguiente en loss_f()
 # Serie: Realizamos una secuencia representando al video cada paso y iteramos
 #        sobre estas con SamplePooling
+# SerieCorta: En ves de realizar la secuencia por cada fotograma en cada paso
+#             solamente realizamos una transicion por paso ej. f0 -> f1
 
 EXPERIMENT_MAP = {"Growing":0, "Persistent":1, "Regenerating":2, "Roll": 3, "Serie": 4, "SerieCorta": 5}
 EXPERIMENT_N = EXPERIMENT_MAP[EXPERIMENT_TYPE]
@@ -63,3 +62,9 @@ VIDEO =             [0, 0, 0, 1, 1, 1][EXPERIMENT_N]
 ROLL =              [0, 0, 0, 1, 0, 0][EXPERIMENT_N]
 SERIE =             [0, 0, 0, 0, 1, 1][EXPERIMENT_N]
 SERIE_CORTA =       [0, 0, 0, 0, 0, 1][EXPERIMENT_N]
+
+
+# El reinicio el entrenamiento afecta negativamente el desempeño, esto por
+# el uso de sample pooling, se eliminara a futuro
+START_TRAINING_FROM_SAVE_POINT = False
+SAVE_POINT = 8000 # step

@@ -160,22 +160,41 @@ def plot_loss(loss_log, step_i):
     plt.ylabel("Loss")
     plt.xlabel("Train step")
     plt.close()
-        
-def plot_tbar(tbar_log, step_i):
+    
+def plot_tbar_no_seed(tbar_log, step_i):
     steps = np.arange(step_i + 1)   # Llegan aca antes de imprimir, por eso es como medio raro
-    steps = np.repeat(steps, BATCH_SIZE, axis=0)
+    steps = np.repeat(steps, BATCH_SIZE - 1, axis=0)
     plt.figure(figsize=(10, 4))
     plt.scatter(steps, tbar_log, s=np.repeat(2, len(steps)))
     plt.title('Valores de tbar por paso de entrenamiento')
     plt.xlabel("Train step")
-    plt.ylabel("Mean tbar values")
-    plt.savefig('train_log/%04d/%04d_Valores_tbar_scatter.jpg'%(step_i, step_i))
+    plt.ylabel("Tbar values")
+    plt.savefig('train_log/%04d/%04d_Valores_tbar.jpg'%(step_i, step_i))
     plt.close()
+
+def plot_tbar_seed(tbar_seed_log, step_i):
+    steps = np.arange(step_i + 1)   # Llegan aca antes de imprimir, por eso es como medio raro
+    steps = np.repeat(steps, 1, axis=0)
+    plt.figure(figsize=(10, 4))
+    plt.scatter(steps, tbar_seed_log, s=np.repeat(2, len(steps)))
+    plt.title('Valores de tbar por paso de entrenamiento de secuencia seed')
+    plt.xlabel("Train step")
+    plt.ylabel("Tbar values")
+    plt.savefig('train_log/%04d/%04d_Valores_tbar_seed.jpg'%(step_i, step_i))
+    plt.close()
+    pass
+
+def plot_tbar(tbar_log, tbar_seed_log, step_i):
+    plot_tbar_seed(tbar_seed_log, step_i)
+    plot_tbar_no_seed(tbar_log, step_i)
+    return
+    
 
 def export_model(ca, step_i):
     base_fn = f'train_log/{step_i:04d}/{step_i:04d}.weights.h5'
     ca.save_weights(base_fn)
-    
+    return
+
     cf = ca.call.get_concrete_function(
         x=tf.TensorSpec([None, None, None, CHANNEL_N], dtype=PRECISION),
         fire_rate=tf.constant(0.5),

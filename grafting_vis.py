@@ -4,6 +4,7 @@ import cv2
 from src.CAModel import CAModel
 from src.Utils import imwrite, to_rgb_premultiplied, to_rgb
 from src.parameters import *
+import matplotlib.pyplot as plt
 
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
@@ -80,13 +81,36 @@ def __draw_label(img, text, pos, bg_color):
    cv2.putText(img, text, pos, font_face, scale, color, 1, cv2.LINE_AA)
    
 
+def plot_grid_values(x):
+    grid_state = x[0].numpy()
+    y = grid_state.flatten()
+    plt.figure(figsize=(10, 4))
+    plt.plot(y, alpha=0.1, linewidth=2.0)
+    plt.show()
+    plt.close()
+
+
+def join_ca_outputs(x, ca1, ca2, mask, i):
+    x1, x2 = ca1(x), ca2(x)
+    if USE_MASK:
+        x = x1 + (x2 - x1)*mask
+    elif USE_TIME:
+        x = x1 + (x2 - x1)*np.clip(((i-100)/1000.0), 0, 1)
+    else:
+        print("\nELIGE UNA FORMA DE GRAFTING")
+        exit(1)
+    
+    return x
 
 def create_video_grafting(ca1, ca2, mask, grid_dims, n_iters_before, video_dims, fps, output_file, n_iters_video):        
     grid_h, grid_w = grid_dims
     seed = np.zeros([grid_h, grid_w, CHANNEL_N], dtype=np.float32)
-    seed[grid_h//2, grid_w//2, 3:] = 1.0
+    ratio_w_h = w//h
+    seed[grid_h//2, grid_w//(2*ratio_w_h), 3:] = 1.0
+    seed[grid_h//2, (4*ratio_w_h-1)*grid_w//(4*ratio_w_h), 3:] = 1.0
+    
     x = np.repeat(seed[None, ...], 1, 0)
-
+    
     frame_width, frame_height = video_dims
 
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')  
@@ -102,16 +126,19 @@ def create_video_grafting(ca1, ca2, mask, grid_dims, n_iters_before, video_dims,
 
     # Realizamos iteraciones sin grabar (para revisar periodicidad)
     for j in range(n_iters_before):
-        x1, x2 = ca1(x), ca2(x)
-        x = x1 + (x2 - x1)*mask
+        x = join_ca_outputs(x, ca1, ca2, mask, j)
 
+    show = True
     # Grabamos el video
     for i in range(n_iters_video):
         # Grafteamos
-        x1, x2 = ca1(x), ca2(x)
-        #print("shapes:", x1.shape, x2.shape, mask.shape)
-        x = x1 + (x2 - x1)*mask
-        rgb = to_rgb_premultiplied(x[0]).numpy()
+        x = join_ca_outputs(x, ca1, ca2, mask, i)
+
+        
+        #if i % 500 == 0:
+        #    plot_grid_values(x)   
+        
+        rgb = to_rgb(x[0]).numpy()
         rgb = cv2.normalize(rgb, None, 255, 0, cv2.NORM_MINMAX, cv2.CV_8U)
         
         # ahora mismo el video es de 40 x 40
@@ -122,34 +149,77 @@ def create_video_grafting(ca1, ca2, mask, grid_dims, n_iters_before, video_dims,
         vis = pad_until_video_resolution(rgb)
         __draw_label(vis, f"step: {i+n_iters_before}", (frame_height, 10), WHITE)
         out.write(vis)
+        
+        print(f"\r step {i}/{n_iters_video}", end="")
 
 
     out.release()
-    print("Video saved as", output_file)
+    print("\nVideo saved as", output_file)
 
+# ChatGPT (Es correcto, lo revise)
+def mask_from_video(size, radius=0.7, decay=8.0):
+    # Create a squared linspace (same as torch.linspace(-1, 1, W)**2)
+    r = tf.linspace(-1.0, 1.0, size) ** 2
 
+    # Equivalent of (r + r[:, None]).sqrt()
+    r_matrix = tf.sqrt(r + tf.reshape(r, (-1, 1)))
+
+    # Equivalent of ((0.6 - r) * 8.0).sigmoid()
+    mask = tf.sigmoid((radius - r_matrix) * decay)
+
+    # Esto lo hace un circulo, en ves de una distribucion sigmoid
+    #mask = tf.cast(mask < 0.6, tf.float32)
+    # Convert to numpy for plotting
+    return mask.numpy()
+
+def show_mask(mask):
+    plt.contourf(mask)
+    plt.colorbar()
+    plt.axis('equal')
+    plt.show()
+    return
+
+Experiments = {
+    "original": [
+        "models/original/8000_control/8000.weights.h5", "models/original/lizard_original/10000/10000.weights.h5"
+    ],
+    "series": [
+        "models/2frames/2f_rgb_min/10000/10000.weights.h5", "models/3frames/3f_rgb_min/10000/10000.weights.h5"
+    ],
+    "gol": [
+        "2f_gol_3segments/10000/10000.weights.h5", "2f_gol/10000/10000.weights.h5"
+    ]
+}
+
+CAs = Experiments["gol"]
 ca1 = CAModel()
-#ca1.load_weights("models/8000_control/8000.weights.h5")
+ca1.load_weights(CAs[0])
 
 ca2 = CAModel()
-#ca2.load_weights("models/2frames/2f_rgb_min/10000/10000.weights.h5")
+ca2.load_weights(CAs[1])
 
 
-h, w, CHANNEL_N = 2*TARGET_PADDING + TARGET_SIZE, 2*TARGET_PADDING + TARGET_SIZE, CHANNEL_N
-# We add invisible parameters to CA
-seed = np.zeros([h, w, CHANNEL_N], dtype=np.float32)
-seed[h//2, w//2, 3:] = 1.0
-
+h, w, CHANNEL_N = 80, 80, CHANNEL_N
+#w *= 2
 
 #mask = center_decay_matrix(40)
 #imwrite("mask.jpg", mask)
-mask = np.zeros([h, w, CHANNEL_N], dtype=np.float32)
-mask[:,w//2:] = 1
-#mask = center_decay_matrix(44, decay='exponential')
-#mask = np.repeat(mask[..., None], CHANNEL_N, -1)
+#mask = np.zeros([h, w, CHANNEL_N], dtype=np.float32)
+#mask[:,w//2:] = 1
+#mask[:,w//2 - 5: w//2 + 5] = 0.5
+#mask = center_decay_matrix(h, decay='exponential')
+mask = mask_from_video(h, 0.7, 20.0)
 
-x = np.repeat(seed[None, ...], 1, 0)
 
+#show_mask(mask)
+
+mask = mask[None, ..., None]
+
+
+USE_MASK = True
+USE_TIME = False
+
+print("Comienza Grafting")
 create_video_grafting(
     ca1 = ca1,
     ca2 = ca2,
@@ -159,5 +229,5 @@ create_video_grafting(
     video_dims = (640, 480),
     fps=30,
     output_file="grafting_vis.mp4",
-    n_iters_video=5000
+    n_iters_video=2000
 )
