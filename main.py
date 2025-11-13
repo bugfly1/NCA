@@ -10,6 +10,7 @@ from src.SamplePooling import SamplePool
 from src.parameters import *
 from src.loss import loss_batch_tf, loss_serie, loss_f, loss_batch_tf_tbar_fijo_seed
 from math import isnan, isinf
+from codecarbon import track_emissions
 
 os.environ['FFMPEG_BINARY'] = 'ffmpeg'
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -32,7 +33,7 @@ trainer = tf.keras.optimizers.Adam(lr_sched)
 ca = CAModel()
 loss_log = np.array([])
 
-os.system('clear')
+#os.system('clear')
 
 # TODO:
 # - Probar el agregar una medicion de diferencia entre elementos de la sequencia en la funcion de perdida
@@ -75,6 +76,7 @@ if START_TRAINING_FROM_SAVE_POINT:
 else:
     begining = 0
 
+@track_emissions(project_name="tbar_fijo")
 def train_serie(x, step_i, serie_target= serie_temporal_extendida, tbar_fijo=None):
     if SERIE_CORTA:
         n_frames_local = min(n_frames, 2*TAU)
@@ -126,7 +128,7 @@ def train_step(x):
     return x, loss
 
 
-tbar_fijo = None
+tbar_fijo = 0
 tbar_seed_log = np.array([])
 tbar_log = np.array([])
 # ========================= Training Loop =====================
@@ -219,6 +221,7 @@ for i in range(begining, 10000+1):
         tbar_max = int(unique_elements[idx_tbar_max])
         porcentaje = counts[idx_tbar_max] / len(tbar_seed_log)
         print("\n  mayor tbar:", tbar_max, "porcentaje: %.3f"%(porcentaje))
+        
         
         if step_i >= 1000 and porcentaje > 0.7 and tbar_fijo == None:
             tbar_fijo = tbar_max
