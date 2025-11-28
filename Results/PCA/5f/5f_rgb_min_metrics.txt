@@ -1,0 +1,2 @@
+Paso de ajuste: 0
+PCA Variacion por eje 3D: [0.50353961 0.1313278  0.07862817]

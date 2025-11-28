@@ -19,7 +19,7 @@ T = 16
 # Determina si se utiliza el canal alpha para perdida y para vida de la celdas
 ALPHA = False
 
-SRC_TARGET = "data/Videos/heavy_diff_n=3.mp4"
+SRC_TARGET = "data/Videos/heavy_diff_n=5.mp4"
 
 
 # Beta, softmin
@@ -43,7 +43,7 @@ else:
 N_ITER_CA = [64, 96]     # [64, 96] por defecto
 
 
-EXPERIMENT_TYPE = "Serie" #@param ["Growing", "Persistent", "Regenerating", "Roll"]
+EXPERIMENT_TYPE = "1D" #@param ["Growing", "Persistent", "Regenerating", "Roll"]
 
 # Experimentos:
 # Growing, Persistent, Regenerating: Los mismos que se encuentran en el distill
@@ -54,14 +54,16 @@ EXPERIMENT_TYPE = "Serie" #@param ["Growing", "Persistent", "Regenerating", "Rol
 # SerieCorta: En ves de realizar la secuencia por cada fotograma en cada paso
 #             solamente realizamos una transicion por paso ej. f0 -> f1
 
-EXPERIMENT_MAP = {"Growing":0, "Persistent":1, "Regenerating":2, "Roll": 3, "Serie": 4, "SerieCorta": 5}
+EXPERIMENT_MAP = {"Growing":0, "Persistent":1, "Regenerating":2, "Roll": 3, "Serie": 4, "SerieCorta": 5, "1D": 6}
 EXPERIMENT_N = EXPERIMENT_MAP[EXPERIMENT_TYPE]
-USE_PATTERN_POOL =  [0, 1, 1, 1, 1, 1][EXPERIMENT_N]
-DAMAGE_N =          [0, 0, 3, 3, 0, 0][EXPERIMENT_N]  # Number of patterns to damage in a batch
-VIDEO =             [0, 0, 0, 1, 1, 1][EXPERIMENT_N]
-ROLL =              [0, 0, 0, 1, 0, 0][EXPERIMENT_N]
-SERIE =             [0, 0, 0, 0, 1, 1][EXPERIMENT_N]
-SERIE_CORTA =       [0, 0, 0, 0, 0, 1][EXPERIMENT_N]
+USE_PATTERN_POOL =  [0, 1, 1, 1, 1, 1, 1][EXPERIMENT_N]
+DAMAGE_N =          [0, 0, 3, 3, 0, 0, 0][EXPERIMENT_N]  # Number of patterns to damage in a batch
+VIDEO =             [0, 0, 0, 1, 1, 1, 1][EXPERIMENT_N]
+ROLL =              [0, 0, 0, 1, 0, 0, 0][EXPERIMENT_N]
+SERIE =             [0, 0, 0, 0, 1, 1, 1][EXPERIMENT_N]
+SERIE_CORTA =       [0, 0, 0, 0, 0, 1, 0][EXPERIMENT_N]
+D1 =                [0, 0, 0, 0, 0, 0, 1][EXPERIMENT_N]
+
 
 
 # El reinicio el entrenamiento afecta negativamente el desempeño, esto por

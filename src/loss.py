@@ -82,37 +82,15 @@ def loss_serie_tf(serie_CA, serie_extendida, n_frames, tbar_fijo=None):
     else:        
         MSE = tf.map_fn(lambda tbar: tf.reduce_mean(pixelWiseMSE(serie_CA, tf.roll(serie_extendida, tbar, axis=0)), axis=[-1]), tf.range(n_frames), fn_output_signature=PRECISION)
     
-    return MSE
-
-"""
-def loss_batch_tf(Batch_CA, serie_extendida, tbar_fijo_seed=None, dtype=PRECISION):
-    n_frames = Batch_CA.shape[-4]
-    # Si tbar de seed verdaderamente se mantiene constante, escoje uno con tbar fijo y evalualo por separado
-    seed_MSE = loss_serie_tf(Batch_CA[0], serie_extendida, n_frames, tbar_fijo=tbar_fijo_seed)
-    Batch_MSE = tf.map_fn(fn=lambda serie_CA: loss_serie_tf(serie_CA, serie_extendida, n_frames, tbar_fijo=None), elems=Batch_CA[1:], fn_output_signature=dtype)
-    #Batch_MSE = tf.map_fn(fn=lambda serie_CA: loss_serie_tf(serie_CA, serie_extendida, n_frames, tbar_fijo=None), elems=Batch_CA, fn_output_signature=dtype)
-    
-    min_tbar_seed = tf.argmin(seed_MSE, output_type=tf.int32)
-    min_tbars = tf.map_fn(fn=lambda serie_MSE: tf.argmin(input=serie_MSE, output_type=tf.int32), elems=Batch_MSE, fn_output_signature=tf.int32)
-    
-    tf.print(Batch_MSE.dtype)
-    
-    min_tbars = tf.concat([tf.expand_dims(min_tbar_seed, 0), min_tbars],axis=0)
-    Batch_MSE = tf.concat([tf.expand_dims(seed_MSE, 0), Batch_MSE],axis=0)
-    
-    Batch_MSE = tf.map_fn(fn=lambda serie_MSE: tf.reduce_min(serie_MSE), elems=Batch_MSE, fn_output_signature=dtype)
-    
-    return tf.reduce_mean(Batch_MSE), min_tbars
-    #return tf.reduce_mean(tf.reduce_mean(Batch_MSE, tf.reduce_min(seed_MSE)))
-"""
+    return tf.reduce_min(MSE)
 
 @tf.function
 def loss_batch_tf(Batch_CA, serie_extendida, dtype=PRECISION):
     n_frames = Batch_CA.shape[-4]
     Batch_MSE = tf.map_fn(fn=lambda serie_CA: loss_serie_tf(serie_CA, serie_extendida, n_frames, tbar_fijo=None), elems=Batch_CA, fn_output_signature=dtype)
-    min_tbars = tf.map_fn(fn=lambda serie_MSE: tf.argmin(input=serie_MSE, output_type=tf.int32), elems=Batch_MSE, fn_output_signature=tf.int32)
-    Batch_MSE = tf.map_fn(fn=lambda serie_MSE: tf.reduce_min(serie_MSE), elems=Batch_MSE, fn_output_signature=dtype)
-    return tf.reduce_mean(Batch_MSE), min_tbars
+    #min_tbars = tf.map_fn(fn=lambda serie_MSE: tf.argmin(input=serie_MSE, output_type=tf.int32), elems=Batch_MSE, fn_output_signature=tf.int32)
+    #Batch_MSE = tf.map_fn(fn=lambda serie_MSE: tf.reduce_min(serie_MSE), elems=Batch_MSE, fn_output_signature=dtype)
+    return tf.reduce_mean(Batch_MSE)
 
 def loss_batch_tf_tbar_fijo_seed(Batch_CA, serie_extendida, tbar_fijo_seed, dtype=PRECISION):
     n_frames = Batch_CA.shape[-4]

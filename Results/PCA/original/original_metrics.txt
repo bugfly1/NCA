@@ -1,0 +1,2 @@
+PCA Variacion por eje 3D: [0.35338559 0.19837959 0.09715003]
+PCA Variacion por eje 2D: [0.35338559 0.19837959]

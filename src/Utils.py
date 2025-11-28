@@ -102,25 +102,34 @@ def generate_pool_figures(pool, step_i):
     imwrite('train_log/%04d/%04d_pool.jpg'%(step_i, step_i), tiled_pool)
 
 def visualize_batch(x0, x, step_i):
-    if ALPHA:
-        vis0 = np.hstack(to_rgb_premultiplied(x0).numpy())
-        vis1 = np.hstack(to_rgb_premultiplied(x).numpy())
+    if x.shape[-3] != 1:
+        if ALPHA:
+            vis0 = np.hstack(to_rgb_premultiplied(x0).numpy())
+            vis1 = np.hstack(to_rgb_premultiplied(x).numpy())
+        else:
+            vis0 = np.hstack(to_rgb(x0).numpy())
+            vis1 = np.hstack(to_rgb(x).numpy())
+        
+        vis = np.vstack([vis0, vis1])
     else:
-        vis0 = np.hstack(to_rgb(x0).numpy())
-        vis1 = np.hstack(to_rgb(x).numpy())
-    
-    vis = np.vstack([vis0, vis1])
+        vis0 = np.vstack(to_rgb(x0).numpy())
+        vis1 = np.vstack(to_rgb(x).numpy())
+        vis = np.hstack([vis0, vis1])
+        
     imwrite('train_log/%04d/batches_%04d.jpg'%(step_i, step_i), vis)
     #print('batch (before/after):')
     #imshow(vis)
 
 
 def visualize_target(target):
-    if ALPHA:
-        vis = np.hstack(to_rgb_premultiplied(target).numpy())
+    if target.shape[-3] != 1:
+        if ALPHA:
+            vis = np.hstack(to_rgb_premultiplied(target).numpy())
+        else:
+            vis = np.hstack(to_rgb(target).numpy())
     else:
-        vis = np.hstack(to_rgb(target).numpy())
-        
+        vis = np.vstack(to_rgb(target).numpy())
+            
     imwrite('train_log/target.jpg', vis)
 
 def visualize_series(serie_CA, step_i):

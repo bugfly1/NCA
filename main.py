@@ -5,12 +5,11 @@ from src.Utils import (imwrite, to_rgba, make_circle_masks, save_loss, load_trai
                       export_model, visualize_batch, visualize_target, visualize_series, plot_loss, 
                       generate_pool_figures, to_rgb, save_params, plot_tbar)
 from src.load_target import load_target
-from src.CAModel import CAModel
+from src.CAModel import CAModel, CA1DModel
 from src.SamplePooling import SamplePool
 from src.parameters import *
 from src.loss import loss_batch_tf, loss_serie, loss_f, loss_batch_tf_tbar_fijo_seed
 from math import isnan, isinf
-from codecarbon import track_emissions
 
 os.environ['FFMPEG_BINARY'] = 'ffmpeg'
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -30,7 +29,7 @@ lr_sched = tf.keras.optimizers.schedules.PiecewiseConstantDecay(
     [2000], [lr, lr*0.1])
 trainer = tf.keras.optimizers.Adam(lr_sched)
 
-ca = CAModel()
+ca = CAModel() if not D1 else CA1DModel()
 loss_log = np.array([])
 
 #os.system('clear')
@@ -51,15 +50,22 @@ n_frames = 1
 if VIDEO:
     n_frames = pad_target.shape[0]
 
-h, w, _ = pad_target.shape[-3:]
+if not D1:
+    h, w, _ = pad_target.shape[-3:]
 
-# We add invisible parameters to CA
-seed = np.zeros([h, w, CHANNEL_N], dtype=NP_PRECISION)
-# Set center cell alive for seed
-seed[h//2, w//2, 3:] = 1.0
-#seed[:,:,:4] = pad_target[-1]
-pool = SamplePool(x=np.repeat(seed[None, ...], POOL_SIZE, 0))
-
+    # We add invisible parameters to CA
+    seed = np.zeros([h, w, CHANNEL_N], dtype=NP_PRECISION)
+    # Set center cell alive for seed
+    seed[h//2, w//2, 3:] = 1.0
+    pool = SamplePool(x=np.repeat(seed[None, ...], POOL_SIZE, 0))
+else:
+    w, _ = pad_target.shape[-2:]
+    # We add invisible parameters to CA
+    seed = np.zeros([1, w, CHANNEL_N], dtype=NP_PRECISION)
+    # Set center cell alive for seed
+    seed[0, w//2, 3:] = 1.0
+    pool = SamplePool(x=np.repeat(seed[None, ...], POOL_SIZE, 0))
+    
 save_params()
 visualize_target(pad_target)
 
@@ -76,7 +82,7 @@ if START_TRAINING_FROM_SAVE_POINT:
 else:
     begining = 0
 
-@track_emissions(project_name="tbar_fijo")
+#@track_emissions(project_name="tbar_fijo")
 def train_serie(x, step_i, serie_target= serie_temporal_extendida, tbar_fijo=None):
     if SERIE_CORTA:
         n_frames_local = min(n_frames, 2*TAU)
@@ -94,19 +100,18 @@ def train_serie(x, step_i, serie_target= serie_temporal_extendida, tbar_fijo=Non
         # Changes shape from (n_frames, n_batch, h, w, channels) to
         # (n_batch, n_frames, h, w, channels)
         Batch_CA = tf.transpose(Batch_CA, perm=[1,0,2,3,4])
-        #if step_i > 2000 and tbar_fijo == None:
-        #    tbar_fijo=get_tbar(Batch_CA, serie_target)
-        #loss, Error_by_tbar = loss_serie(Batch_CA, serie_temporal_extendida, tbar_fijo)
-        if tbar_fijo == None:
+        loss = loss_batch_tf(Batch_CA, serie_target)
+        
+        """if tbar_fijo == None:
             loss, min_tbars = loss_batch_tf(Batch_CA, serie_target)
         else:
             loss, min_tbars = loss_batch_tf_tbar_fijo_seed(Batch_CA, serie_target, tbar_fijo)
-            
+        """    
 
     grads = g.gradient(loss, ca.weights)
     grads = [g/(tf.norm(g)+1e-8) for g in grads]
     trainer.apply_gradients(zip(grads, ca.weights))
-    return x, loss, Batch_CA, min_tbars
+    return x, loss, Batch_CA
 
 
 ### Training function
@@ -175,9 +180,9 @@ for i in range(begining, 10000+1):
     
     ## Train
     if SERIE:
-        x, loss, Batch_CA, min_tbars = train_serie(x0, step_i=i, tbar_fijo=tbar_fijo)
-        tbar_seed_log = np.append(tbar_seed_log, min_tbars[0].numpy())
-        tbar_log = np.append(tbar_log, min_tbars[1:].numpy())
+        x, loss, Batch_CA = train_serie(x0, step_i=i, tbar_fijo=tbar_fijo)
+        #tbar_seed_log = np.append(tbar_seed_log, min_tbars[0].numpy())
+        #tbar_log = np.append(tbar_log, min_tbars[1:].numpy())
     else:
         x, loss = train_step(x0)
 
@@ -206,17 +211,17 @@ for i in range(begining, 10000+1):
         if SERIE:
             visualize_series(Batch_CA, step_i)
             #visualize_step_seed(x0, step_i)
-            plot_tbar(tbar_log, tbar_seed_log, step_i)
+            #plot_tbar(tbar_log, tbar_seed_log, step_i)
         else:
             visualize_batch(x0, x, step_i)
         
-        if USE_PATTERN_POOL:
+        if USE_PATTERN_POOL and not D1:
             generate_pool_figures(pool, step_i)
         
         # Un pool de 1024 son 300-500 MB
         #save_pool(pool, step_i)
         
-        unique_elements, counts = np.unique(tbar_seed_log, return_counts=True)
+        """unique_elements, counts = np.unique(tbar_seed_log, return_counts=True)
         idx_tbar_max = np.argmax(counts)
         tbar_max = int(unique_elements[idx_tbar_max])
         porcentaje = counts[idx_tbar_max] / len(tbar_seed_log)
@@ -227,7 +232,7 @@ for i in range(begining, 10000+1):
             tbar_fijo = tbar_max
             print("================================")
             print("Se decidio tbar Fijo:", tbar_fijo)
-            print("================================")
+            print("================================")"""
             
     print('\r step: %d, log10(loss): %.3f'%(i, np.log10(loss)), end='')
     #print('\r step: %d, loss: %f'%(i, loss), end='')

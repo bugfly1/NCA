@@ -1,3 +1,0 @@
-Paso de ajuste: 61
-Minima diferencia promedio a un fotograma: 0.0380962597168982
-PCA Variacion por eje: None

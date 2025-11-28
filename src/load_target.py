@@ -3,7 +3,7 @@ import tensorflow as tf
 import cv2
 import os
 import imageio
-from src.parameters import TARGET_SIZE, TARGET_PADDING, PRECISION, NP_PRECISION, ALPHA
+from src.parameters import TARGET_SIZE, TARGET_PADDING, PRECISION, NP_PRECISION, ALPHA, D1, VIDEO
 
 ## Especificamente hecho para mp4
 def load_user_video(path, max_size=TARGET_SIZE) -> np.ndarray:
@@ -101,10 +101,34 @@ def add_padding(x: np.ndarray, p=TARGET_PADDING) -> tf.Tensor:
     axis_padding[-2] = (p, p) # Width axis
     x = tf.pad(x, axis_padding, "CONSTANT")
     return x
+
+def create_1D_target(w=100):
+    WHITE = (255,255,255)
+    BLACK = (0,0,0)
+    RED = (0,0,255)
+
+    n_frames = 2
+    COLORS = [BLACK, WHITE]
+
+    if VIDEO:
+        pad_target = np.zeros([n_frames, 1, w, 3], dtype=np.float32)
+        
+        for i in range(w):
+            for n in range(n_frames):
+                pad_target[n, 0, i, :3] = COLORS[(i + n) % n_frames]
+    else:
+        pad_target = np.zeros([1, w, 3], dtype=np.float32)
+        
+        for i in range(w):
+            pad_target[0, i, :3] = COLORS[i % n_frames]
     
+    return pad_target
 
 def load_target(path: str) -> tf.Tensor:
     target = None
+    if D1:
+        return create_1D_target()
+    
     if path.endswith(".png"):
         return load_user_image(path)
     elif path.endswith(".mp4"):

@@ -2,11 +2,22 @@ import cv2
 import numpy as np
 import os
 from src.parameters import *
-from src.CAModel import CAModel
+from src.CAModel import CAModel, CA1DModel
 from src.Utils import to_rgb, to_rgb_premultiplied, imwrite
 
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
+
+@tf.function
+def make_circle_masks(n, h, w):
+    x = tf.linspace(-1.0, 1.0, w)[None, None, :]
+    y = tf.linspace(-1.0, 1.0, h)[None, :, None]
+    center = tf.random.uniform([2, n, 1, 1], -0.5, 0.5)
+    r = tf.random.uniform([n, 1, 1], 0.1, 0.4)
+    x, y = (x-center[0])/r, (y-center[1])/r
+    mask = tf.cast(x*x+y*y < 1.0, tf.float32)
+    return mask
+
 
 # https://stackoverflow.com/questions/54607447/opencv-how-to-overlay-text-on-video
 def __draw_label(img, text, pos, bg_color):
@@ -25,14 +36,20 @@ def __draw_label(img, text, pos, bg_color):
 
 
 def create_video(model_path, n_iters_before, video_dims, fps, n_iters_video):
-    ca = CAModel()
+    ca = CAModel() if not ca_1d else CA1DModel
     ca.load_weights(model_path)
     modelo = model_path.split("/")[-3]
     output_file = f"{modelo}.mp4"
 
-    grid_h, grid_w = 2*TARGET_PADDING + TARGET_SIZE, 2*TARGET_PADDING + TARGET_SIZE
+    if not ca_1d:
+        grid_h, grid_w = 2*TARGET_PADDING + TARGET_SIZE, 2*TARGET_PADDING + TARGET_SIZE
+    else:
+        grid_h, grid_w = 1, 2*TARGET_PADDING + TARGET_SIZE
+        
+    n = grid_h
     seed = np.zeros([grid_h, grid_w, CHANNEL_N], dtype=np.float32)
     seed[grid_h//2, grid_w//2, 3:] = 1.0
+    #seed = np.random.rand(n, n, CHANNEL_N)
     x = np.repeat(seed[None, ...], 1, 0)
 
     frame_width, frame_height = video_dims
@@ -57,8 +74,14 @@ def create_video(model_path, n_iters_before, video_dims, fps, n_iters_video):
         x = ca(x)
         rgb = to_rgb(x[0]).numpy()
         
-        #rgb = np.uint8(rgb.clip(0,1)*255)
-        rgb = cv2.normalize(rgb, None, 255, 0, cv2.NORM_MINMAX, cv2.CV_8U)
+        if i == 1000 or i == 2000:
+            damage = 1.0-make_circle_masks(1, grid_h, grid_w).numpy()[..., None]
+            x = x.numpy()
+            x[:1] *= damage
+            x = tf.cast(x, tf.float32)
+            
+        rgb = np.uint8(rgb.clip(0,1)*255)
+        #rgb = cv2.normalize(rgb, None, 255, 0, cv2.NORM_MINMAX, cv2.CV_8U)
         
         # ahora mismo el video es de 40 x 40
         rgb = np.repeat(rgb, frame_height // grid_h, axis=0)
@@ -76,13 +99,14 @@ def create_video(model_path, n_iters_before, video_dims, fps, n_iters_video):
 
 
 if __name__ == "__main__":
-    path = "2f_gol_3segments/10000/10000.weights.h5"
+    path = "5f_rgb_min/10000/10000.weights.h5"
+    ca_1d = False
     create_video(
         model_path= path,
         n_iters_before=0,
         video_dims = (640, 480),
-        fps=30,
-        n_iters_video=2000
+        fps=60,
+        n_iters_video=3000
     )
         
     
